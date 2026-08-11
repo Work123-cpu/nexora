@@ -19,11 +19,11 @@ function iso(month: number, day: number, offsetDays = 0): string {
 }
 
 const RAW_EVENTS: Omit<CalendarEvent, 'id'>[] = [
-  { title: "New Year's Day", type: 'government-holiday', date: iso(1, 1), description: 'Federal holiday — plan procurement around the closure.' },
-  { title: 'Memorial Day', type: 'government-holiday', date: iso(5, 25), description: 'Federal holiday — reduced logistics capacity.' },
-  { title: 'Independence Day', type: 'government-holiday', date: iso(7, 4), description: 'Federal holiday — most suppliers closed.' },
-  { title: 'Labor Day', type: 'government-holiday', date: iso(9, 7), description: 'Federal holiday — reduced carrier availability nationwide.' },
-  { title: 'Thanksgiving Day', type: 'government-holiday', date: iso(11, 26), description: 'Federal holiday — most vendors closed, expect shipping delays.' },
+  { title: 'Republic Day', type: 'government-holiday', date: iso(1, 26), description: 'National holiday — government offices and most suppliers closed.' },
+  { title: 'Labour Day', type: 'government-holiday', date: iso(5, 1), description: 'National holiday observed across most Indian states.' },
+  { title: 'Independence Day', type: 'government-holiday', date: iso(8, 15), description: 'National holiday — government offices and most suppliers closed.' },
+  { title: 'Gandhi Jayanti', type: 'government-holiday', date: iso(10, 2), description: 'National holiday — government offices and most suppliers closed.' },
+  { title: 'Christmas', type: 'government-holiday', date: iso(12, 25), description: 'National holiday — expect reduced logistics capacity.' },
   {
     title: 'Winter Company Shutdown',
     type: 'company-holiday',

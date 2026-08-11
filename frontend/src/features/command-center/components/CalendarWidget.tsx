@@ -2,8 +2,9 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, CalendarDays } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/Card'
 import { Badge } from '@/shared/ui/Badge'
+import { EmptyState } from '@/shared/ui/EmptyState'
 import { formatDate } from '@/shared/lib/formatters'
-import { getUpcomingEvents } from '@/mocks/seed/calendarEvents.seed'
+import { useCalendarEvents } from '@/features/business-calendar/hooks/useCalendarEvents'
 import type { CalendarEventType } from '@/types/entities/calendarEvent'
 
 const TYPE_TONE: Record<CalendarEventType, 'info' | 'primary' | 'warning' | 'neutral'> = {
@@ -21,7 +22,11 @@ const TYPE_LABEL: Record<CalendarEventType, string> = {
 }
 
 export function CalendarWidget() {
-  const events = getUpcomingEvents(5)
+  const { data: calendarEvents } = useCalendarEvents()
+  const events = (calendarEvents ?? [])
+    .filter((e) => new Date(e.date).getTime() >= Date.now() - 86400000)
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .slice(0, 5)
 
   return (
     <Card>
@@ -31,17 +36,21 @@ export function CalendarWidget() {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <ul className="space-y-3">
-          {events.map((event) => (
-            <li key={event.id} className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium text-foreground">{event.title}</p>
-                <p className="text-xs text-muted-foreground">{formatDate(event.date)}</p>
-              </div>
-              <Badge tone={TYPE_TONE[event.type]}>{TYPE_LABEL[event.type]}</Badge>
-            </li>
-          ))}
-        </ul>
+        {events.length === 0 ? (
+          <EmptyState icon={<CalendarDays className="size-5" />} title="No upcoming events" />
+        ) : (
+          <ul className="space-y-3">
+            {events.map((event) => (
+              <li key={event.id} className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-foreground">{event.title}</p>
+                  <p className="text-xs text-muted-foreground">{formatDate(event.date)}</p>
+                </div>
+                <Badge tone={TYPE_TONE[event.type]}>{TYPE_LABEL[event.type]}</Badge>
+              </li>
+            ))}
+          </ul>
+        )}
         <Link to="/app/business-calendar" className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline">
           Open full calendar <ArrowRight className="size-3.5" />
         </Link>

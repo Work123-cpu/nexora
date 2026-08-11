@@ -20,13 +20,15 @@ public class AuthService {
     private final CompanyRepository companyRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final CalendarEventService calendarEventService;
 
     public AuthService(UserRepository userRepository, CompanyRepository companyRepository,
-                        PasswordEncoder passwordEncoder, JwtService jwtService) {
+                        PasswordEncoder passwordEncoder, JwtService jwtService, CalendarEventService calendarEventService) {
         this.userRepository = userRepository;
         this.companyRepository = companyRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.calendarEventService = calendarEventService;
     }
 
     @Transactional
@@ -46,6 +48,8 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(req.password()));
         user.setRole(Role.ADMIN);
         userRepository.save(user);
+
+        calendarEventService.seedDefaultHolidays(company.getId());
 
         String token = jwtService.generateToken(user.getId(), company.getId(), user.getRole().name());
         return new AuthResponse(token, user.getId(), company.getId(), user.getName(), user.getEmail(), user.getRole().name());
