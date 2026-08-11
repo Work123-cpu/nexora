@@ -145,9 +145,17 @@ function findMySql() {
 }
 
 function findPython() {
+  // globDirs sorts newest-version-first, which is right for Java/MySQL but wrong here: the
+  // AI service's scientific packages (numpy/pandas/scikit-learn/xgboost) only get prebuilt
+  // Windows wheels for a Python version some months after it ships. Picking the very newest
+  // installed Python risks landing on one with no wheels yet, forcing pip to build from
+  // source — which then fails without a full MSVC+Windows-SDK toolchain (e.g. a missing
+  // stdalign.h). Reversed back to oldest-first here so an established version like 3.12 is
+  // tried before a bleeding-edge one like 3.14, while still preferring a user-scoped install
+  // (LOCALAPPDATA) over a machine-wide one (Program Files) as the outer priority.
   const candidates = [
-    ...globDirs(path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Python'), 'Python').map((d) => path.join(d, 'python.exe')),
-    ...globDirs('C:\\Program Files', 'Python').map((d) => path.join(d, 'python.exe')),
+    ...globDirs(path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Python'), 'Python').reverse().map((d) => path.join(d, 'python.exe')),
+    ...globDirs('C:\\Program Files', 'Python').reverse().map((d) => path.join(d, 'python.exe')),
   ]
   const found = findFirstExisting(candidates)
   if (found) return found
@@ -510,6 +518,11 @@ async function bootstrapAiEnvironment(onProgress) {
   })
   if (pipResult.status !== 0) {
     log(`[setup] pip install failed: ${pipResult.stderr}`)
+    // Delete the partial venv rather than leaving it behind: the "if (!fs.existsSync(venvDir))"
+    // check above would otherwise see it on the next attempt and skip straight to reusing it —
+    // including whichever Python interpreter it was created with, even after findPython()'s
+    // own preference changes (e.g. after this exact bug's fix). A retry should start clean.
+    fs.rmSync(venvDir, { recursive: true, force: true })
     throw new Error('Installing AI service dependencies failed — see View Error Log.')
   }
   onProgress('AI service environment ready.')
