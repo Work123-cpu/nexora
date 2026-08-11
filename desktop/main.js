@@ -18,11 +18,20 @@
  * Every launch (after first-run setup) shows splash.html — an animated logo reveal —
  * while those local services spin up in the background, with live status text pushed
  * over IPC (see sendStatus below) so the wait never looks frozen.
+ *
+ * Missing prerequisites: setup.html can also download and silently install Java and
+ * Python directly (official Adoptium/python.org sources, per-machine/per-user installs
+ * that self-elevate via Windows UAC as needed — never bundled or bypassed). MySQL is
+ * deliberately NOT silently installed: its setup wizard decides the root auth method and
+ * password, which the rest of the app already has assumptions about, so a human should
+ * make that call — Nexora downloads the official installer and opens it for them instead.
  */
 const { app, BrowserWindow, dialog, ipcMain, shell, Menu } = require('electron')
 const path = require('path')
 const net = require('net')
 const http = require('http')
+const https = require('https')
+const os = require('os')
 const fs = require('fs')
 const { spawn, spawnSync } = require('child_process')
 
@@ -92,8 +101,25 @@ function findMySql() {
   return undefined
 }
 
-const JAVA_HOME = findJavaHome()
-const MYSQL = findMySql()
+function findPython() {
+  const candidates = [
+    ...globDirs(path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Python'), 'Python').map((d) => path.join(d, 'python.exe')),
+    ...globDirs('C:\\Program Files', 'Python').map((d) => path.join(d, 'python.exe')),
+  ]
+  const found = findFirstExisting(candidates)
+  if (found) return found
+  // Fall back to whatever "python" resolves to on PATH, if anything.
+  const result = spawnSync('where', ['python'], { encoding: 'utf8', windowsHide: true })
+  if (result.status === 0) {
+    const first = result.stdout.split(/\r?\n/).find((line) => line.trim())
+    if (first && fs.existsSync(first.trim())) return first.trim()
+  }
+  return undefined
+}
+
+let JAVA_HOME = findJavaHome()
+let MYSQL = findMySql()
+let PYTHON_EXE = findPython()
 const MAVEN_EXE = path.join(REPO_ROOT, '.tools', 'apache-maven-3.9.9', 'bin', 'mvn.cmd')
 const AI_VENV_UVICORN = path.join(REPO_ROOT, 'ai-service', '.venv', 'Scripts', 'uvicorn.exe')
 const AI_ENV_FILE = path.join(REPO_ROOT, 'ai-service', '.env')
@@ -256,9 +282,185 @@ function startStaticServer() {
 }
 
 // ---------------------------------------------------------------------------
+// Prerequisite installers — download from official sources only, verified HTTPS.
+// ---------------------------------------------------------------------------
+const DOWNLOAD_DIR = path.join(os.tmpdir(), 'nexora-prereqs')
+const PYTHON_INSTALLER_URL = 'https://www.python.org/ftp/python/3.12.7/python-3.12.7-amd64.exe'
+const MYSQL_INSTALLER_URL = 'https://dev.mysql.com/get/Downloads/MySQLInstaller/mysql-installer-web-community-8.0.40.0.msi'
+const ADOPTIUM_ASSETS_API = 'https://api.adoptium.net/v3/assets/latest/17/hotspot?image_type=jdk&os=windows&architecture=x64&vendor=eclipse'
+
+function checkInternet() {
+  return new Promise((resolve) => {
+    const req = https.get('https://api.adoptium.net/v3/info/available_releases', { timeout: 6000 }, (res) => {
+      res.resume()
+      resolve(res.statusCode >= 200 && res.statusCode < 400)
+    })
+    req.on('error', () => resolve(false))
+    req.on('timeout', () => {
+      req.destroy()
+      resolve(false)
+    })
+  })
+}
+
+/** GETs a URL following up to 5 redirects, resolving with the parsed JSON body. */
+function httpsGetJson(url, redirectsLeft = 5) {
+  return new Promise((resolve, reject) => {
+    https
+      .get(url, { headers: { 'User-Agent': 'Nexora-Desktop' } }, (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && redirectsLeft > 0) {
+          res.resume()
+          resolve(httpsGetJson(res.headers.location, redirectsLeft - 1))
+          return
+        }
+        if (res.statusCode !== 200) {
+          res.resume()
+          reject(new Error(`HTTP ${res.statusCode} fetching ${url}`))
+          return
+        }
+        let body = ''
+        res.on('data', (chunk) => (body += chunk))
+        res.on('end', () => {
+          try {
+            resolve(JSON.parse(body))
+          } catch (err) {
+            reject(err)
+          }
+        })
+      })
+      .on('error', reject)
+  })
+}
+
+/** Downloads a URL to disk, following redirects, reporting 0-100 progress. */
+function downloadFile(url, destPath, onProgress, redirectsLeft = 5) {
+  return new Promise((resolve, reject) => {
+    https
+      .get(url, { headers: { 'User-Agent': 'Nexora-Desktop' } }, (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && redirectsLeft > 0) {
+          res.resume()
+          resolve(downloadFile(res.headers.location, destPath, onProgress, redirectsLeft - 1))
+          return
+        }
+        if (res.statusCode !== 200) {
+          res.resume()
+          reject(new Error(`HTTP ${res.statusCode} downloading ${url}`))
+          return
+        }
+        const total = Number(res.headers['content-length'] || 0)
+        let downloaded = 0
+        fs.mkdirSync(path.dirname(destPath), { recursive: true })
+        const file = fs.createWriteStream(destPath)
+        res.on('data', (chunk) => {
+          downloaded += chunk.length
+          if (total > 0) onProgress?.(Math.round((downloaded / total) * 100))
+        })
+        res.pipe(file)
+        file.on('finish', () => file.close(() => resolve(destPath)))
+        file.on('error', reject)
+      })
+      .on('error', reject)
+  })
+}
+
+async function installJavaSilently(onProgress) {
+  onProgress('Looking up the latest Java 17 build…')
+  const assets = await httpsGetJson(ADOPTIUM_ASSETS_API)
+  const installerUrl = assets?.[0]?.binary?.installer?.link
+  if (!installerUrl) throw new Error('Could not find a Java 17 installer for this machine right now.')
+
+  const msiPath = path.join(DOWNLOAD_DIR, 'temurin-jdk17.msi')
+  onProgress('Downloading Java 17 (Eclipse Temurin)…')
+  await downloadFile(installerUrl, msiPath, (pct) => onProgress(`Downloading Java 17… ${pct}%`))
+
+  onProgress('Installing Java 17 (you may see a Windows permission prompt)…')
+  const result = spawnSync('msiexec.exe', ['/i', msiPath, '/quiet', '/norestart', 'ADDLOCAL=FeatureMain,FeatureEnvironment,FeatureJarFileRunWith,FeatureJavaHome'], {
+    windowsHide: true,
+  })
+  if (result.status !== 0) throw new Error(`Java installer exited with code ${result.status}.`)
+  onProgress('Java 17 installed.')
+}
+
+async function installPythonSilently(onProgress) {
+  const exePath = path.join(DOWNLOAD_DIR, 'python-installer.exe')
+  onProgress('Downloading Python…')
+  await downloadFile(PYTHON_INSTALLER_URL, exePath, (pct) => onProgress(`Downloading Python… ${pct}%`))
+
+  // Per-user install (InstallAllUsers=0) — no admin/UAC prompt needed, and this app only
+  // ever needs Python for its own bundled ai-service venv, not a system-wide install.
+  onProgress('Installing Python…')
+  const result = spawnSync(exePath, ['/quiet', 'InstallAllUsers=0', 'PrependPath=1', 'Include_test=0'], { windowsHide: true })
+  if (result.status !== 0) throw new Error(`Python installer exited with code ${result.status}.`)
+  onProgress('Python installed.')
+}
+
+/** Creates ai-service/.venv and installs requirements.txt — safe to re-run; used both right
+ * after a fresh Python install and for someone who already had Python but never ran this. */
+async function bootstrapAiEnvironment(onProgress) {
+  const pythonExe = findPython()
+  if (!pythonExe) throw new Error('Python still was not found after installing — try restarting Nexora.')
+
+  const aiServiceDir = path.join(REPO_ROOT, 'ai-service')
+  const venvDir = path.join(aiServiceDir, '.venv')
+
+  if (!fs.existsSync(venvDir)) {
+    onProgress('Creating the AI service\'s Python environment…')
+    const venvResult = spawnSync(pythonExe, ['-m', 'venv', '.venv'], { cwd: aiServiceDir, windowsHide: true })
+    if (venvResult.status !== 0) throw new Error(`Could not create the Python virtual environment (exit ${venvResult.status}).`)
+  }
+
+  onProgress('Installing AI service dependencies — this can take a few minutes…')
+  const pipExe = path.join(venvDir, 'Scripts', 'pip.exe')
+  const pipResult = spawnSync(pipExe, ['install', '-r', 'requirements.txt'], { cwd: aiServiceDir, windowsHide: true, encoding: 'utf8' })
+  if (pipResult.status !== 0) {
+    log(`[setup] pip install failed: ${pipResult.stderr}`)
+    throw new Error('Installing AI service dependencies failed — see View Error Log.')
+  }
+  onProgress('AI service environment ready.')
+}
+
+async function downloadAndOpenMysqlInstaller(onProgress) {
+  const msiPath = path.join(DOWNLOAD_DIR, 'mysql-installer-web-community.msi')
+  onProgress('Downloading the official MySQL installer…')
+  await downloadFile(MYSQL_INSTALLER_URL, msiPath, (pct) => onProgress(`Downloading MySQL installer… ${pct}%`))
+  onProgress('Opening the MySQL installer — finish its setup wizard, then come back here and click "Check again".')
+  await shell.openPath(msiPath)
+}
+
+// ---------------------------------------------------------------------------
 // IPC handlers for setup.html
 // ---------------------------------------------------------------------------
 ipcMain.handle('nexora:check-prerequisites', () => checkPrerequisites())
+ipcMain.handle('nexora:check-internet', () => checkInternet())
+
+ipcMain.handle('nexora:install-prereq', async (event, id) => {
+  const sendProgress = (message) => event.sender.send('nexora:install-progress', { id, message })
+  try {
+    if (id === 'java') await installJavaSilently(sendProgress)
+    else if (id === 'python') {
+      if (!findPython()) await installPythonSilently(sendProgress)
+      else sendProgress('Python is already installed — setting up the AI service environment…')
+      await bootstrapAiEnvironment(sendProgress)
+    } else if (id === 'mysql') await downloadAndOpenMysqlInstaller(sendProgress)
+    else throw new Error(`Unknown prerequisite: ${id}`)
+    return { ok: true }
+  } catch (err) {
+    log(`[setup] install-prereq(${id}) failed: ${err.stack ?? err}`)
+    return { ok: false, message: err.message ?? String(err) }
+  }
+})
+
+/** For someone who already has Python but never ran the AI service's one-time setup. */
+ipcMain.handle('nexora:bootstrap-ai-env', async (event) => {
+  const sendProgress = (message) => event.sender.send('nexora:install-progress', { id: 'python', message })
+  try {
+    await bootstrapAiEnvironment(sendProgress)
+    return { ok: true }
+  } catch (err) {
+    log(`[setup] bootstrap-ai-env failed: ${err.stack ?? err}`)
+    return { ok: false, message: err.message ?? String(err) }
+  }
+})
 
 ipcMain.handle('nexora:setup-database', async () => {
   if (!MYSQL) return { ok: false, message: 'MySQL was not found on this machine — install it first.' }

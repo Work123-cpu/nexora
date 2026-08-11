@@ -29,14 +29,20 @@
   .sub { margin: 0 0 24px; color: #c9beb8; font-size: 13px; }
   .section { margin-bottom: 22px; }
   .section-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: #e0a06a; margin-bottom: 10px; }
-  .check-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .check-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.06); flex-wrap: wrap; }
   .check-row:last-child { border-bottom: none; }
   .badge { flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
   .badge.ok { background: #1e3a2a; color: #4ade80; }
   .badge.missing { background: #3a1e1e; color: #f87171; }
   .badge.pending { background: rgba(255,255,255,0.08); color: #c9beb8; }
-  .check-label { flex: 1; }
+  .check-label { flex: 1; min-width: 160px; }
   .check-hint { color: #8a7f78; font-size: 11px; }
+  .check-progress { color: #f5a25e; font-size: 11px; margin-top: 2px; }
+  .btn-install { flex-shrink: 0; background: rgba(251,113,133,0.14); color: #fb7185; border: 1px solid rgba(251,113,133,0.3); padding: 6px 12px; border-radius: 8px; font-size: 11.5px; font-weight: 600; cursor: pointer; }
+  .btn-install:hover { filter: brightness(1.15); }
+  .btn-install:disabled { opacity: 0.6; cursor: default; }
+  .offline-banner { display: none; align-items: center; gap: 8px; background: #3a2610; border: 1px solid rgba(240,168,96,0.3); color: #f0a860; font-size: 12px; padding: 10px 14px; border-radius: 10px; margin-bottom: 18px; }
+  .offline-banner.show { display: flex; }
   input[type="password"], input[type="text"] {
     width: 100%;
     padding: 11px 14px;
@@ -80,6 +86,10 @@
     <h1>Welcome to Nexora</h1>
     <p class="sub">One-time setup for this machine. This only shows once.</p>
 
+    <div class="offline-banner" id="offline-banner">
+      ⚠ No internet connection detected — you'll need one to install missing prerequisites, reach Groq, and pull live market data. Connect, then reload this screen.
+    </div>
+
     <div class="section">
       <div class="section-title">Prerequisites</div>
       <div id="checks"></div>
@@ -96,9 +106,9 @@
     </div>
 
     <div class="section">
-      <div class="section-title">Groq API key (for AI chat &amp; recommendations)</div>
+      <div class="section-title">Groq API key (for AI chat &amp; recommendations) — optional</div>
       <input type="password" id="groq-key" placeholder="gsk_..." />
-      <p class="hint">Get a free key at <a href="#" id="groq-link">console.groq.com</a>. Optional — you can skip this and the AI chat will simply show as unavailable until you add one later.</p>
+      <p class="hint">Get a free key at <a href="#" id="groq-link">console.groq.com</a>. Entirely optional — skip this and the AI chat simply shows as unavailable until you add one later from Settings. Everything else in Nexora works without it.</p>
       <div class="status-msg" id="groq-status"></div>
     </div>
 
@@ -114,25 +124,78 @@
     const dbBadge = document.getElementById('db-badge')
     const dbStatus = document.getElementById('db-status')
     const groqStatus = document.getElementById('groq-status')
+    const offlineBanner = document.getElementById('offline-banner')
+
+    const INSTALLABLE = new Set(['java', 'python', 'mysql'])
+    // Installing Java/MySQL only takes effect for the code paths already computed at
+    // launch (JAVA_HOME, the MySQL exe path) — those need a fresh process to pick up.
+    // Python's AI-service venv is checked fresh every time, so it never needs a restart.
+    const NEEDS_RESTART = new Set(['java', 'mysql'])
 
     function badge(ok) {
       return ok ? '<span class="badge ok">✓</span>' : '<span class="badge missing">✕</span>'
     }
 
+    async function checkOnline() {
+      const online = await window.nexoraSetup.checkInternet()
+      offlineBanner.classList.toggle('show', !online)
+      return online
+    }
+
     async function loadChecks() {
       const result = await window.nexoraSetup.checkPrerequisites()
       checksEl.innerHTML = result.map((r) => `
-        <div class="check-row">
+        <div class="check-row" id="row-${r.id}">
           ${badge(r.ok)}
-          <span class="check-label">${r.label}${r.ok ? '' : `<div class="check-hint">${r.hint}</div>`}</span>
+          <span class="check-label">
+            ${r.label}
+            ${r.ok ? '' : `<div class="check-hint">${r.hint}</div>`}
+            <div class="check-progress" id="progress-${r.id}"></div>
+          </span>
+          ${!r.ok && INSTALLABLE.has(r.id) ? `<button class="btn-install" id="install-${r.id}" data-id="${r.id}">Install automatically</button>` : ''}
         </div>
       `).join('')
+
       const mysql = result.find((r) => r.id === 'mysql')
       if (mysql && !mysql.ok) {
-        dbBadge.outerHTML = '<span class="badge missing" id="db-badge">✕</span>'
         document.getElementById('db-setup-btn').disabled = true
       }
+
+      for (const btn of checksEl.querySelectorAll('.btn-install')) {
+        btn.addEventListener('click', () => runInstall(btn.dataset.id))
+      }
     }
+
+    async function runInstall(id) {
+      const btn = document.getElementById(`install-${id}`)
+      const progressEl = document.getElementById(`progress-${id}`)
+      if (!(await checkOnline())) return
+
+      btn.disabled = true
+      btn.innerHTML = '<span class="spinner"></span>Installing…'
+
+      const res = await window.nexoraSetup.installPrereq(id)
+
+      if (!res.ok) {
+        btn.disabled = false
+        btn.textContent = 'Retry'
+        progressEl.textContent = res.message || 'Something went wrong — see View Error Log in the app menu.'
+        return
+      }
+
+      if (NEEDS_RESTART.has(id)) {
+        progressEl.textContent = ''
+        btn.outerHTML = '<button class="btn-install" id="restart-' + id + '">Restart Nexora to finish</button>'
+        document.getElementById(`restart-${id}`).addEventListener('click', () => window.nexoraSetup.relaunch())
+      } else {
+        await loadChecks()
+      }
+    }
+
+    window.nexoraSetup.onInstallProgress(({ id, message }) => {
+      const el = document.getElementById(`progress-${id}`)
+      if (el) el.textContent = message
+    })
 
     document.getElementById('db-setup-btn').addEventListener('click', async (e) => {
       const btn = e.target
@@ -143,7 +206,7 @@
       dbStatus.textContent = res.message
       btn.textContent = res.ok ? 'Done' : 'Retry'
       btn.disabled = false
-      if (res.ok) document.getElementById('db-badge').outerHTML = badge(true).replace('badge', 'badge').replace('id=""', 'id="db-badge"')
+      if (res.ok) document.getElementById('db-badge').outerHTML = badge(true).replace('id=""', 'id="db-badge"')
     })
 
     document.getElementById('groq-link').addEventListener('click', (e) => {
@@ -167,6 +230,7 @@
     document.getElementById('continue-btn').addEventListener('click', () => finish(false))
     document.getElementById('skip-btn').addEventListener('click', () => finish(true))
 
+    checkOnline()
     loadChecks()
   </script>
 </body>

@@ -6,6 +6,10 @@ const { contextBridge, ipcRenderer } = require('electron')
 // not just during it.
 contextBridge.exposeInMainWorld('nexoraSetup', {
   checkPrerequisites: () => ipcRenderer.invoke('nexora:check-prerequisites'),
+  checkInternet: () => ipcRenderer.invoke('nexora:check-internet'),
+  installPrereq: (id) => ipcRenderer.invoke('nexora:install-prereq', id),
+  bootstrapAiEnv: () => ipcRenderer.invoke('nexora:bootstrap-ai-env'),
+  onInstallProgress: (callback) => ipcRenderer.on('nexora:install-progress', (_event, data) => callback(data)),
   setupDatabase: () => ipcRenderer.invoke('nexora:setup-database'),
   saveGroqKey: (key) => ipcRenderer.invoke('nexora:save-groq-key', key),
   completeSetup: () => ipcRenderer.invoke('nexora:complete-setup'),

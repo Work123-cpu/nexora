@@ -6,6 +6,10 @@
  */
 export interface DesktopBridge {
   checkPrerequisites: () => Promise<{ id: string; label: string; ok: boolean; hint: string }[]>
+  checkInternet: () => Promise<boolean>
+  installPrereq: (id: 'java' | 'python' | 'mysql') => Promise<{ ok: boolean; message?: string }>
+  bootstrapAiEnv: () => Promise<{ ok: boolean; message?: string }>
+  onInstallProgress: (callback: (data: { id: string; message: string }) => void) => void
   setupDatabase: () => Promise<{ ok: boolean; message: string }>
   saveGroqKey: (key: string) => Promise<{ ok: boolean; message: string }>
   completeSetup: () => Promise<{ ok: boolean }>
