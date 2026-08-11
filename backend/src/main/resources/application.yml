@@ -1,0 +1,27 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: nexora-backend
+  datasource:
+    url: jdbc:mysql://localhost:3306/nexora?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: ${DB_USERNAME:nexora_app}
+    password: ${DB_PASSWORD:nexora_dev_pw}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
+
+nexora:
+  jwt:
+    secret: ${JWT_SECRET:nexora-local-dev-secret-key-change-in-production-0123456789}
+    expiration-ms: 86400000
+  cors:
+    # localhost:5173 = Vite dev server; 127.0.0.1:5510 = the desktop app's bundled static server (desktop/main.js)
+    allowed-origins: http://localhost:5173,http://127.0.0.1:5510,http://localhost:5510

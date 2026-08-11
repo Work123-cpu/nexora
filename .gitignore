@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+.venv/
+venv/
+
+# Build output
+frontend/dist/
+backend/target/
+desktop/release/
+desktop/dist/
+*.class
+
+# Secrets — never commit real keys, only .env.example templates
+.env
+.env.local
+!.env.example
+
+# Bundled third-party tooling (downloaded, not project source)
+.tools/
+
+# Logs
+*.log
+logs/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# Local Claude Code session config — machine-specific, not shared
+.claude/settings.local.json
+
+# Local screenshots / scratch
+Screenshots/

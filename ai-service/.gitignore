@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+app/ml/artifacts/*.joblib
+app/ml/artifacts/*.meta.json

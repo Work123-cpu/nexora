@@ -1,0 +1,5 @@
+package com.nexora.entity;
+
+public enum Role {
+    ADMIN, PROCUREMENT_MANAGER, WAREHOUSE_MANAGER, PRODUCTION_MANAGER, VENDOR, VIEWER
+}

@@ -1,0 +1,501 @@
+/**
+ * Nexora Desktop — Electron shell around the existing web app.
+ *
+ * This does NOT bundle a JVM/MySQL/Python into the installer (that's a much bigger
+ * undertaking than an Electron shell). Instead, on launch it spawns the same local
+ * MySQL/Spring Boot/FastAPI processes documented in backend/README.md and
+ * ai-service/README.md, auto-detecting their install locations on THIS machine rather
+ * than hardcoding one developer's paths — then opens a native window pointed at the
+ * built frontend. Closing the window stops everything it started.
+ *
+ * First run on any machine shows setup.html: it checks for JDK/MySQL/Python/Maven,
+ * lets the user create the MySQL schema with one click, and collects their own Groq
+ * API key (never a key baked into the app) before continuing to the real app.
+ *
+ * If a service is already running (e.g. you started it yourself in a terminal),
+ * this skips spawning it and just uses what's already there.
+ *
+ * Every launch (after first-run setup) shows splash.html — an animated logo reveal —
+ * while those local services spin up in the background, with live status text pushed
+ * over IPC (see sendStatus below) so the wait never looks frozen.
+ */
+const { app, BrowserWindow, dialog, ipcMain, shell, Menu } = require('electron')
+const path = require('path')
+const net = require('net')
+const http = require('http')
+const fs = require('fs')
+const { spawn, spawnSync } = require('child_process')
+
+const REPO_ROOT = app.isPackaged ? path.join(path.dirname(app.getPath('exe')), '..', '..', '..') : path.join(__dirname, '..')
+const FRONTEND_DIST = app.isPackaged ? path.join(process.resourcesPath, 'frontend-dist') : path.join(REPO_ROOT, 'frontend', 'dist')
+const STATIC_PORT = 5510
+const ICON_PATH = path.join(__dirname, 'build', 'icon.png')
+
+const USER_DATA = app.getPath('userData')
+const SETUP_MARKER = path.join(USER_DATA, 'setup-complete.json')
+const LOG_DIR = path.join(USER_DATA, 'logs')
+const LOG_FILE = path.join(LOG_DIR, 'nexora.log')
+
+// ---------------------------------------------------------------------------
+// Logging — every service's output and every failure lands in one file so
+// "what went wrong" is never just a vanished console window.
+// ---------------------------------------------------------------------------
+fs.mkdirSync(LOG_DIR, { recursive: true })
+const logStream = fs.createWriteStream(LOG_FILE, { flags: 'a' })
+function log(line) {
+  const stamped = `[${new Date().toISOString()}] ${line}`
+  logStream.write(stamped.endsWith('\n') ? stamped : stamped + '\n')
+  process.stdout.write(line.endsWith('\n') ? line : line + '\n')
+}
+
+// ---------------------------------------------------------------------------
+// Prerequisite auto-detection — searches common install locations instead of
+// assuming the developer's exact paths, so this works on a fresh machine.
+// ---------------------------------------------------------------------------
+function findFirstExisting(candidates) {
+  return candidates.find((p) => p && fs.existsSync(p))
+}
+
+function globDirs(parent, prefix) {
+  if (!fs.existsSync(parent)) return []
+  return fs
+    .readdirSync(parent)
+    .filter((d) => d.toLowerCase().startsWith(prefix.toLowerCase()))
+    .map((d) => path.join(parent, d))
+    .sort()
+    .reverse()
+}
+
+function findJavaHome() {
+  if (process.env.JAVA_HOME && fs.existsSync(process.env.JAVA_HOME)) return process.env.JAVA_HOME
+  const roots = ['C:\\Program Files\\Eclipse Adoptium', 'C:\\Program Files\\Java', 'C:\\Program Files\\Microsoft\\jdk-17']
+  for (const root of roots) {
+    const hit = findFirstExisting(globDirs(root, 'jdk'))
+    if (hit) return hit
+  }
+  return undefined
+}
+
+function findMySql() {
+  const roots = globDirs('C:\\Program Files\\MySQL', 'MySQL Server')
+  for (const root of roots) {
+    const mysqld = path.join(root, 'bin', 'mysqld.exe')
+    const mysqlClient = path.join(root, 'bin', 'mysql.exe')
+    if (fs.existsSync(mysqld)) {
+      const iniCandidates = [
+        path.join('C:\\ProgramData\\MySQL', path.basename(root), 'my.ini'),
+        path.join(root, 'my.ini'),
+      ]
+      return { mysqld, mysqlClient: fs.existsSync(mysqlClient) ? mysqlClient : undefined, ini: findFirstExisting(iniCandidates) }
+    }
+  }
+  return undefined
+}
+
+const JAVA_HOME = findJavaHome()
+const MYSQL = findMySql()
+const MAVEN_EXE = path.join(REPO_ROOT, '.tools', 'apache-maven-3.9.9', 'bin', 'mvn.cmd')
+const AI_VENV_UVICORN = path.join(REPO_ROOT, 'ai-service', '.venv', 'Scripts', 'uvicorn.exe')
+const AI_ENV_FILE = path.join(REPO_ROOT, 'ai-service', '.env')
+const AI_ENV_EXAMPLE = path.join(REPO_ROOT, 'ai-service', '.env.example')
+
+const CONFIG = {
+  mysql: {
+    port: 3306,
+    exe: MYSQL?.mysqld,
+    args: MYSQL?.ini ? [`--defaults-file=${MYSQL.ini}`, '--console'] : ['--console'],
+  },
+  backend: {
+    port: 8081,
+    cwd: path.join(REPO_ROOT, 'backend'),
+    exe: MAVEN_EXE,
+    args: ['spring-boot:run'],
+    env: JAVA_HOME ? { JAVA_HOME } : {},
+  },
+  aiService: {
+    port: 8000,
+    cwd: path.join(REPO_ROOT, 'ai-service'),
+    exe: AI_VENV_UVICORN,
+    args: ['app.main:app', '--port', '8000'],
+  },
+}
+
+function checkPrerequisites() {
+  return [
+    {
+      id: 'java',
+      label: 'Java 17 (for the backend)',
+      ok: Boolean(JAVA_HOME),
+      hint: 'Install Eclipse Temurin 17 from adoptium.net, then restart Nexora.',
+    },
+    {
+      id: 'maven',
+      label: 'Apache Maven (bundled with Nexora)',
+      ok: fs.existsSync(MAVEN_EXE),
+      hint: 'This ships inside the app — if missing, reinstall Nexora.',
+    },
+    {
+      id: 'mysql',
+      label: 'MySQL Server',
+      ok: Boolean(MYSQL),
+      hint: 'Install MySQL Community Server from dev.mysql.com, then restart Nexora.',
+    },
+    {
+      id: 'python',
+      label: 'Python AI service environment',
+      ok: fs.existsSync(AI_VENV_UVICORN),
+      hint: 'Run ai-service/README.md\'s one-time setup (python -m venv .venv && pip install -r requirements.txt), then restart Nexora.',
+    },
+  ]
+}
+
+// ---------------------------------------------------------------------------
+// Service orchestration
+// ---------------------------------------------------------------------------
+const spawnedProcesses = []
+
+function isPortOpen(port) {
+  return new Promise((resolve) => {
+    const socket = net.createConnection({ port, host: '127.0.0.1' })
+    socket.once('connect', () => {
+      socket.destroy()
+      resolve(true)
+    })
+    socket.once('error', () => resolve(false))
+    socket.setTimeout(800, () => {
+      socket.destroy()
+      resolve(false)
+    })
+  })
+}
+
+function waitForPort(port, timeoutMs) {
+  const start = Date.now()
+  return new Promise((resolve) => {
+    const tick = async () => {
+      if (await isPortOpen(port)) return resolve(true)
+      if (Date.now() - start > timeoutMs) return resolve(false)
+      setTimeout(tick, 1000)
+    }
+    tick()
+  })
+}
+
+/** Kills a process AND everything it spawned. child.kill() alone only signals the immediate
+ * process — on Windows that's not enough for `mvn spring-boot:run`, which launches its own
+ * child java.exe: killing just the mvn/cmd wrapper leaves that Java process (and the whole
+ * backend) orphaned and running in the background after the app "closes". */
+function killProcessTree(pid) {
+  if (process.platform === 'win32') {
+    spawnSync('taskkill', ['/pid', String(pid), '/T', '/F'], { windowsHide: true })
+  } else {
+    try {
+      process.kill(-pid, 'SIGKILL')
+    } catch {
+      process.kill(pid, 'SIGKILL')
+    }
+  }
+}
+
+function stopAllServices() {
+  for (const { name, child } of spawnedProcesses) {
+    if (child.exitCode !== null || child.killed) continue
+    log(`[${name}] stopping (pid ${child.pid}, full tree)…`)
+    try {
+      killProcessTree(child.pid)
+    } catch (err) {
+      log(`[${name}] failed to stop cleanly: ${err.message}`)
+    }
+  }
+}
+
+function spawnService(name, { exe, args, cwd, env }) {
+  if (!exe) throw new Error(`${name} is not installed on this machine — see the setup screen for what's missing.`)
+  // mvn.cmd is a batch script, not a PE executable — Windows' CreateProcess (what Node's
+  // spawn() uses without `shell`) can't launch it directly and fails with EINVAL. Routing
+  // it through a shell is what actually resolves and runs a .cmd/.bat file.
+  const needsShell = process.platform === 'win32' && /\.(cmd|bat)$/i.test(exe)
+  const child = spawn(exe, args, {
+    cwd,
+    env: { ...process.env, ...env },
+    windowsHide: true,
+    shell: needsShell,
+  })
+  child.stdout?.on('data', (d) => log(`[${name}] ${d}`.trimEnd()))
+  child.stderr?.on('data', (d) => log(`[${name}] ${d}`.trimEnd()))
+  spawnedProcesses.push({ name, child })
+  return child
+}
+
+async function ensureService(name, cfg) {
+  if (await isPortOpen(cfg.port)) {
+    log(`[${name}] already running on port ${cfg.port} — reusing it`)
+    return
+  }
+  log(`[${name}] starting…`)
+  spawnService(name, cfg)
+  const ready = await waitForPort(cfg.port, 90_000)
+  if (!ready) throw new Error(`${name} did not come up on port ${cfg.port} within 90s — see View Logs in the app menu.`)
+}
+
+/** Minimal static file server for the built SPA, with a catch-all fallback to index.html for client-side routing. */
+function startStaticServer() {
+  const mimeTypes = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json' }
+  const server = http.createServer((req, res) => {
+    const urlPath = decodeURIComponent(req.url.split('?')[0])
+    let filePath = path.join(FRONTEND_DIST, urlPath)
+    if (!filePath.startsWith(FRONTEND_DIST)) filePath = FRONTEND_DIST
+    if (urlPath === '/' || !fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+      filePath = path.join(FRONTEND_DIST, 'index.html')
+    }
+    const ext = path.extname(filePath)
+    res.writeHead(200, { 'Content-Type': mimeTypes[ext] ?? 'application/octet-stream' })
+    fs.createReadStream(filePath).pipe(res)
+  })
+  return new Promise((resolve) => server.listen(STATIC_PORT, '127.0.0.1', () => resolve(server)))
+}
+
+// ---------------------------------------------------------------------------
+// IPC handlers for setup.html
+// ---------------------------------------------------------------------------
+ipcMain.handle('nexora:check-prerequisites', () => checkPrerequisites())
+
+ipcMain.handle('nexora:setup-database', async () => {
+  if (!MYSQL) return { ok: false, message: 'MySQL was not found on this machine — install it first.' }
+
+  const wasRunning = await isPortOpen(3306)
+  if (!wasRunning) {
+    log('[setup] starting MySQL temporarily to create the schema…')
+    spawnService('mysql', CONFIG.mysql)
+    const ready = await waitForPort(3306, 30_000)
+    if (!ready) return { ok: false, message: 'Could not start MySQL to set up the schema. See View Logs.' }
+  }
+
+  const sql = [
+    "CREATE DATABASE IF NOT EXISTS nexora CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;",
+    "CREATE USER IF NOT EXISTS 'nexora_app'@'localhost' IDENTIFIED BY 'nexora_dev_pw';",
+    "GRANT ALL PRIVILEGES ON nexora.* TO 'nexora_app'@'localhost';",
+    "FLUSH PRIVILEGES;",
+  ].join(' ')
+
+  if (!MYSQL.mysqlClient) {
+    return { ok: false, message: 'MySQL is running but the mysql.exe client was not found alongside it — create the schema manually (see backend/README.md).' }
+  }
+
+  const result = spawnSync(MYSQL.mysqlClient, ['-u', 'root', '-e', sql], { encoding: 'utf8', timeout: 15_000 })
+  if (result.status === 0) {
+    log('[setup] database schema created/confirmed successfully')
+    return { ok: true, message: 'Database and app user are ready.' }
+  }
+
+  // A fresh MySQL install sometimes has a non-empty root password we don't know — that's
+  // expected here, not a bug we can silently work around. Tell the user exactly what to do.
+  log(`[setup] database setup failed: ${result.stderr}`)
+  return {
+    ok: false,
+    message: 'Could not connect as root (it may have a password). Run the CREATE DATABASE commands from backend/README.md manually with your root password.',
+  }
+})
+
+ipcMain.handle('nexora:save-groq-key', (_event, key) => {
+  try {
+    let contents = fs.existsSync(AI_ENV_FILE)
+      ? fs.readFileSync(AI_ENV_FILE, 'utf8')
+      : fs.existsSync(AI_ENV_EXAMPLE)
+        ? fs.readFileSync(AI_ENV_EXAMPLE, 'utf8')
+        : 'GROQ_API_KEY=\nGROQ_MODEL=llama-3.3-70b-versatile\nALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5510,http://localhost:5510\nHOST=0.0.0.0\nPORT=8000\nLOG_LEVEL=INFO\n'
+
+    contents = contents.includes('GROQ_API_KEY=')
+      ? contents.replace(/GROQ_API_KEY=.*/g, `GROQ_API_KEY=${key}`)
+      : contents + `\nGROQ_API_KEY=${key}\n`
+
+    fs.writeFileSync(AI_ENV_FILE, contents, 'utf8')
+    log('[setup] Groq API key saved to ai-service/.env')
+    return { ok: true, message: 'Saved.' }
+  } catch (err) {
+    log(`[setup] failed to save Groq key: ${err.message}`)
+    return { ok: false, message: `Could not write ai-service/.env: ${err.message}` }
+  }
+})
+
+ipcMain.handle('nexora:open-external', (_event, url) => shell.openExternal(url))
+
+let resolveSetupComplete
+const setupCompletePromise = new Promise((resolve) => {
+  resolveSetupComplete = resolve
+})
+ipcMain.handle('nexora:complete-setup', () => {
+  fs.writeFileSync(SETUP_MARKER, JSON.stringify({ completedAt: new Date().toISOString() }))
+  resolveSetupComplete()
+  return { ok: true }
+})
+
+// Used by Settings after changing the Groq key — the AI service only reads ai-service/.env
+// at process startup, so a full relaunch (not just a page reload) is what actually applies it.
+ipcMain.handle('nexora:relaunch', () => {
+  log('[settings] relaunching to apply changed settings…')
+  app.relaunch()
+  app.exit(0)
+})
+
+// ---------------------------------------------------------------------------
+// Window + app lifecycle
+// ---------------------------------------------------------------------------
+/** Small frameless, transparent, rounded-corner window for the animated logo reveal — a
+ * separate window (not the main one) so the rounded corners can actually show the desktop
+ * through them, and so it can be closed outright once the real app is ready. */
+function createSplashWindow() {
+  const splash = new BrowserWindow({
+    width: 640,
+    height: 440,
+    frame: false,
+    resizable: false,
+    movable: false,
+    transparent: true,
+    backgroundColor: '#00000000',
+    hasShadow: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    icon: ICON_PATH,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+    },
+  })
+  splash.center()
+  return splash
+}
+
+async function createWindow() {
+  const win = new BrowserWindow({
+    width: 1440,
+    height: 900,
+    minWidth: 1024,
+    minHeight: 700,
+    icon: ICON_PATH,
+    title: 'Nexora',
+    backgroundColor: '#14090a',
+    autoHideMenuBar: true,
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+    },
+  })
+
+  win.webContents.on('render-process-gone', (_event, details) => {
+    log(`[renderer] crashed: ${JSON.stringify(details)}`)
+    dialog.showErrorBox('Nexora ran into a problem', `The app window crashed (${details.reason}). See View Logs in the menu for details.`)
+  })
+
+  const isFirstRun = !fs.existsSync(SETUP_MARKER)
+  if (isFirstRun) {
+    log('[setup] first run on this machine — showing setup screen')
+    win.show()
+    try {
+      await win.loadFile(path.join(__dirname, 'setup.html'))
+    } catch (err) {
+      log(`[setup] failed to load setup.html: ${err.message ?? err}`)
+      throw err
+    }
+    log('[setup] setup.html loaded, waiting for user to complete setup…')
+    await setupCompletePromise
+    log('[setup] setup complete, continuing to normal startup')
+    win.hide()
+  }
+
+  const splash = createSplashWindow()
+  await splash.loadFile(path.join(__dirname, 'splash.html'))
+  splash.show()
+  const sendStatus = (text) => {
+    if (!splash.isDestroyed()) splash.webContents.send('nexora:status', text)
+  }
+  // The logo-reveal animation runs on its own fixed ~2.6s timeline regardless of how long
+  // startup actually takes — when every service is already running this whole block can
+  // resolve in well under a second, and without this floor the splash would flash by before
+  // the reveal even finishes playing.
+  const splashMinDuration = new Promise((resolve) => setTimeout(resolve, 2600))
+
+  try {
+    sendStatus('Starting database…')
+    await ensureService('mysql', CONFIG.mysql)
+    sendStatus('Starting backend…')
+    await ensureService('backend', CONFIG.backend)
+    sendStatus('Starting AI service…')
+    await ensureService('ai-service', CONFIG.aiService)
+    sendStatus('Almost there…')
+    await startStaticServer()
+    await splashMinDuration
+
+    await win.loadURL(`http://127.0.0.1:${STATIC_PORT}`)
+    win.show()
+    if (!splash.isDestroyed()) splash.close()
+  } catch (err) {
+    log(`[startup] FAILED: ${err.message ?? err}`)
+    if (!splash.isDestroyed()) splash.close()
+    win.show()
+    dialog.showErrorBox('Nexora failed to start', `${String(err.message ?? err)}\n\nFull log: ${LOG_FILE}`)
+    app.quit()
+  }
+}
+
+function buildMenu() {
+  const template = [
+    {
+      label: 'Nexora',
+      submenu: [
+        {
+          label: 'View Error Log',
+          click: () => shell.openPath(LOG_FILE),
+        },
+        {
+          label: 'Re-run First-Time Setup',
+          click: () => {
+            if (fs.existsSync(SETUP_MARKER)) fs.unlinkSync(SETUP_MARKER)
+            app.relaunch()
+            app.exit(0)
+          },
+        },
+        { type: 'separator' },
+        { role: 'quit' },
+      ],
+    },
+  ]
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template))
+}
+
+function safeCreateWindow() {
+  createWindow().catch((err) => {
+    log(`[main] createWindow failed: ${err.stack ?? err}`)
+    dialog.showErrorBox('Nexora failed to start', `${String(err.message ?? err)}\n\nFull log: ${LOG_FILE}`)
+    app.quit()
+  })
+}
+
+app.whenReady().then(() => {
+  buildMenu()
+  safeCreateWindow()
+})
+
+app.on('window-all-closed', () => {
+  stopAllServices()
+  if (process.platform !== 'darwin') app.quit()
+})
+
+// Safety net: covers app.quit() being called directly (e.g. the startup-failure path)
+// without window-all-closed necessarily firing first.
+app.on('before-quit', stopAllServices)
+
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) safeCreateWindow()
+})
+
+process.on('uncaughtException', (err) => {
+  log(`[main] uncaught exception: ${err.stack ?? err}`)
+  dialog.showErrorBox('Nexora hit an unexpected error', `${err.message}\n\nFull log: ${LOG_FILE}`)
+})
+
+process.on('unhandledRejection', (reason) => {
+  const err = reason instanceof Error ? reason : new Error(String(reason))
+  log(`[main] unhandled rejection: ${err.stack ?? err}`)
+})
