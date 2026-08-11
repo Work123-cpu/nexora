@@ -30,7 +30,10 @@
       "build/**/*"
     ],
     "extraResources": [
-      { "from": "../frontend/dist", "to": "frontend-dist" }
+      { "from": "../frontend/dist", "to": "frontend-dist" },
+      { "from": "../.tools", "to": "tools" },
+      { "from": "../backend", "to": "backend", "filter": ["**/*", "!target", "!target/**"] },
+      { "from": "../ai-service", "to": "ai-service", "filter": ["**/*", "!.venv", "!.venv/**", "!__pycache__", "!**/__pycache__/**", "!**/*.pyc", "!.env"] }
     ],
     "win": {
       "target": "nsis",

@@ -2,11 +2,13 @@
  * Nexora Desktop — Electron shell around the existing web app.
  *
  * This does NOT bundle a JVM/MySQL/Python into the installer (that's a much bigger
- * undertaking than an Electron shell). Instead, on launch it spawns the same local
- * MySQL/Spring Boot/FastAPI processes documented in backend/README.md and
- * ai-service/README.md, auto-detecting their install locations on THIS machine rather
- * than hardcoding one developer's paths — then opens a native window pointed at the
- * built frontend. Closing the window stops everything it started.
+ * undertaking than an Electron shell) — those three are auto-detected on THIS machine
+ * rather than assuming one developer's paths, same as before. It DOES bundle Maven plus
+ * the backend/ai-service *source* as extraResources (see desktop/package.json), since
+ * those are ours to ship — see the "Resource resolution" block below for how a packaged
+ * app locates and runs them. On launch it spawns the same local MySQL/Spring Boot/FastAPI
+ * processes documented in backend/README.md and ai-service/README.md, then opens a native
+ * window pointed at the built frontend. Closing the window stops everything it started.
  *
  * First run on any machine shows setup.html: it checks for JDK/MySQL/Python/Maven,
  * lets the user create the MySQL schema with one click, and collects their own Groq
@@ -35,8 +37,6 @@ const os = require('os')
 const fs = require('fs')
 const { spawn, spawnSync } = require('child_process')
 
-const REPO_ROOT = app.isPackaged ? path.join(path.dirname(app.getPath('exe')), '..', '..', '..') : path.join(__dirname, '..')
-const FRONTEND_DIST = app.isPackaged ? path.join(process.resourcesPath, 'frontend-dist') : path.join(REPO_ROOT, 'frontend', 'dist')
 const STATIC_PORT = 5510
 const ICON_PATH = path.join(__dirname, 'build', 'icon.png')
 
@@ -44,6 +44,47 @@ const USER_DATA = app.getPath('userData')
 const SETUP_MARKER = path.join(USER_DATA, 'setup-complete.json')
 const LOG_DIR = path.join(USER_DATA, 'logs')
 const LOG_FILE = path.join(LOG_DIR, 'nexora.log')
+
+// ---------------------------------------------------------------------------
+// Resource resolution — a packaged install's "source of truth" for the bundled
+// backend/ai-service/Maven is process.resourcesPath (populated by electron-builder's
+// extraResources, see desktop/package.json), NOT any path math relative to the .exe.
+// Maven needs to write backend/target and pip needs to create ai-service/.venv, and a
+// per-machine install directory (e.g. Program Files) may not be writable by the current
+// user — so the actual runtime copies of backend/ and ai-service/ live under userData
+// (always writable) and are synced from the read-only bundled copy on first run / update.
+// Dev mode (`npm start`) skips all of this and just runs straight out of the repo.
+// ---------------------------------------------------------------------------
+const RESOURCES_ROOT = app.isPackaged ? process.resourcesPath : path.join(__dirname, '..')
+const FRONTEND_DIST = path.join(RESOURCES_ROOT, app.isPackaged ? 'frontend-dist' : path.join('frontend', 'dist'))
+const TOOLS_DIR = path.join(RESOURCES_ROOT, app.isPackaged ? 'tools' : '.tools')
+const RUNTIME_ROOT = app.isPackaged ? path.join(USER_DATA, 'runtime') : RESOURCES_ROOT
+const BACKEND_DIR = path.join(RUNTIME_ROOT, 'backend')
+const AI_SERVICE_DIR = path.join(RUNTIME_ROOT, 'ai-service')
+
+/** Copies the bundled (read-only) backend/ and ai-service/ source into the writable runtime
+ * location, skipped once already synced for the running app's version. cpSync only adds/
+ * overwrites files present in the source — it never deletes extras — so a prior build's
+ * backend/target or ai-service/.venv (never part of the bundle) survives untouched across
+ * both first-run and later app updates. */
+function ensureWritableRuntimeCopy() {
+  if (!app.isPackaged) return
+  const versionFile = path.join(RUNTIME_ROOT, '.version')
+  const currentVersion = app.getVersion()
+  const stampedVersion = fs.existsSync(versionFile) ? fs.readFileSync(versionFile, 'utf8').trim() : null
+  if (stampedVersion === currentVersion) return
+
+  for (const name of ['backend', 'ai-service']) {
+    const src = path.join(RESOURCES_ROOT, name)
+    const dest = path.join(RUNTIME_ROOT, name)
+    if (!fs.existsSync(src)) continue
+    log(`[setup] syncing ${name} runtime files (v${currentVersion})…`)
+    fs.mkdirSync(dest, { recursive: true })
+    fs.cpSync(src, dest, { recursive: true, force: true })
+  }
+  fs.mkdirSync(RUNTIME_ROOT, { recursive: true })
+  fs.writeFileSync(versionFile, currentVersion)
+}
 
 // ---------------------------------------------------------------------------
 // Logging — every service's output and every failure lands in one file so
@@ -56,6 +97,8 @@ function log(line) {
   logStream.write(stamped.endsWith('\n') ? stamped : stamped + '\n')
   process.stdout.write(line.endsWith('\n') ? line : line + '\n')
 }
+
+ensureWritableRuntimeCopy()
 
 // ---------------------------------------------------------------------------
 // Prerequisite auto-detection — searches common install locations instead of
@@ -120,10 +163,10 @@ function findPython() {
 let JAVA_HOME = findJavaHome()
 let MYSQL = findMySql()
 let PYTHON_EXE = findPython()
-const MAVEN_EXE = path.join(REPO_ROOT, '.tools', 'apache-maven-3.9.9', 'bin', 'mvn.cmd')
-const AI_VENV_UVICORN = path.join(REPO_ROOT, 'ai-service', '.venv', 'Scripts', 'uvicorn.exe')
-const AI_ENV_FILE = path.join(REPO_ROOT, 'ai-service', '.env')
-const AI_ENV_EXAMPLE = path.join(REPO_ROOT, 'ai-service', '.env.example')
+const MAVEN_EXE = path.join(TOOLS_DIR, 'apache-maven-3.9.9', 'bin', 'mvn.cmd')
+const AI_VENV_UVICORN = path.join(AI_SERVICE_DIR, '.venv', 'Scripts', 'uvicorn.exe')
+const AI_ENV_FILE = path.join(AI_SERVICE_DIR, '.env')
+const AI_ENV_EXAMPLE = path.join(AI_SERVICE_DIR, '.env.example')
 
 const CONFIG = {
   mysql: {
@@ -133,14 +176,14 @@ const CONFIG = {
   },
   backend: {
     port: 8081,
-    cwd: path.join(REPO_ROOT, 'backend'),
+    cwd: BACKEND_DIR,
     exe: MAVEN_EXE,
     args: ['spring-boot:run'],
     env: JAVA_HOME ? { JAVA_HOME } : {},
   },
   aiService: {
     port: 8000,
-    cwd: path.join(REPO_ROOT, 'ai-service'),
+    cwd: AI_SERVICE_DIR,
     exe: AI_VENV_UVICORN,
     args: ['app.main:app', '--port', '8000'],
   },
@@ -247,6 +290,12 @@ function spawnService(name, { exe, args, cwd, env }) {
     windowsHide: true,
     shell: needsShell,
   })
+  // A spawn failure (e.g. ENOENT for a missing executable) fires this 'error' event
+  // asynchronously. With no listener, Node treats it as an uncaught exception — which
+  // bypasses ensureService's caller's try/catch entirely and, in the startup path, left the
+  // splash window stuck on screen with no way to close it. Logging here instead turns it
+  // into a normal, silent no-op; ensureService below is what actually surfaces the failure.
+  child.on('error', (err) => log(`[${name}] failed to start: ${err.message}`))
   child.stdout?.on('data', (d) => log(`[${name}] ${d}`.trimEnd()))
   child.stderr?.on('data', (d) => log(`[${name}] ${d}`.trimEnd()))
   spawnedProcesses.push({ name, child })
@@ -259,8 +308,17 @@ async function ensureService(name, cfg) {
     return
   }
   log(`[${name}] starting…`)
-  spawnService(name, cfg)
-  const ready = await waitForPort(cfg.port, 90_000)
+  const child = spawnService(name, cfg)
+  // Races normal readiness against an early failure (bad spawn, or the process dying before
+  // ever opening its port) so a broken install surfaces immediately instead of making the
+  // user sit through the full 90s timeout.
+  const failure = new Promise((_, reject) => {
+    child.once('error', (err) => reject(new Error(`${name} failed to start: ${err.message}`)))
+    child.once('exit', (code) => {
+      if (code !== 0 && code !== null) reject(new Error(`${name} exited unexpectedly (code ${code}) — see View Logs in the app menu.`))
+    })
+  })
+  const ready = await Promise.race([waitForPort(cfg.port, 90_000), failure])
   if (!ready) throw new Error(`${name} did not come up on port ${cfg.port} within 90s — see View Logs in the app menu.`)
 }
 
@@ -400,7 +458,7 @@ async function bootstrapAiEnvironment(onProgress) {
   const pythonExe = findPython()
   if (!pythonExe) throw new Error('Python still was not found after installing — try restarting Nexora.')
 
-  const aiServiceDir = path.join(REPO_ROOT, 'ai-service')
+  const aiServiceDir = AI_SERVICE_DIR
   const venvDir = path.join(aiServiceDir, '.venv')
 
   if (!fs.existsSync(venvDir)) {
@@ -543,6 +601,12 @@ ipcMain.handle('nexora:relaunch', () => {
 // ---------------------------------------------------------------------------
 // Window + app lifecycle
 // ---------------------------------------------------------------------------
+// Tracked at module scope (not just inside createWindow) so the global uncaughtException
+// handler below can also close it — a defense-in-depth backstop against any startup failure
+// mode that isn't already caught by createWindow's own try/catch, so the frameless,
+// always-on-top splash can never again get stuck on screen with no way to close it.
+let currentSplash = null
+
 /** Small frameless, transparent, rounded-corner window for the animated logo reveal — a
  * separate window (not the main one) so the rounded corners can actually show the desktop
  * through them, and so it can be closed outright once the real app is ready. */
@@ -607,6 +671,7 @@ async function createWindow() {
   }
 
   const splash = createSplashWindow()
+  currentSplash = splash
   await splash.loadFile(path.join(__dirname, 'splash.html'))
   splash.show()
   const sendStatus = (text) => {
@@ -632,9 +697,11 @@ async function createWindow() {
     await win.loadURL(`http://127.0.0.1:${STATIC_PORT}`)
     win.show()
     if (!splash.isDestroyed()) splash.close()
+    currentSplash = null
   } catch (err) {
     log(`[startup] FAILED: ${err.message ?? err}`)
     if (!splash.isDestroyed()) splash.close()
+    currentSplash = null
     win.show()
     dialog.showErrorBox('Nexora failed to start', `${String(err.message ?? err)}\n\nFull log: ${LOG_FILE}`)
     app.quit()
@@ -694,6 +761,10 @@ app.on('activate', () => {
 
 process.on('uncaughtException', (err) => {
   log(`[main] uncaught exception: ${err.stack ?? err}`)
+  if (currentSplash && !currentSplash.isDestroyed()) {
+    currentSplash.close()
+    currentSplash = null
+  }
   dialog.showErrorBox('Nexora hit an unexpected error', `${err.message}\n\nFull log: ${LOG_FILE}`)
 })
 
