@@ -665,9 +665,15 @@ async function createWindow() {
     dialog.showErrorBox('Nexora ran into a problem', `The app window crashed (${details.reason}). See View Logs in the menu for details.`)
   })
 
-  const isFirstRun = !fs.existsSync(SETUP_MARKER)
+  // Not just "no setup marker": the AI service's .venv now lives in a synced runtime copy
+  // (see ensureWritableRuntimeCopy above) that's fresh on first install AND on every version
+  // bump, so a marker left over from a previous install/version can be stale even though the
+  // .venv this exact copy needs was never bootstrapped — show setup again in that case too,
+  // rather than let ensureService fail with a raw ENOENT dialog for something the setup
+  // screen exists specifically to fix.
+  const isFirstRun = !fs.existsSync(SETUP_MARKER) || (Boolean(PYTHON_EXE) && !fs.existsSync(AI_VENV_UVICORN))
   if (isFirstRun) {
-    log('[setup] first run on this machine — showing setup screen')
+    log('[setup] first run (or AI service environment not yet set up) — showing setup screen')
     win.show()
     try {
       await win.loadFile(path.join(__dirname, 'setup.html'))
@@ -700,7 +706,16 @@ async function createWindow() {
     sendStatus('Starting backend…')
     await ensureService('backend', CONFIG.backend)
     sendStatus('Starting AI service…')
-    await ensureService('ai-service', CONFIG.aiService)
+    // Unlike mysql/backend (without which nothing works), the AI service only backs the AI
+    // chat/recommendations feature — the rest of Nexora (inventory, procurement, etc.) has no
+    // dependency on it. So its failure is logged and shown to the user, but doesn't block the
+    // rest of the app from launching; the frontend already handles AI endpoints being
+    // unavailable (e.g. no Groq key configured) the same way it'd handle this.
+    try {
+      await ensureService('ai-service', CONFIG.aiService)
+    } catch (err) {
+      log(`[startup] AI service did not start (non-fatal, continuing without it): ${err.message ?? err}`)
+    }
     sendStatus('Almost there…')
     await startStaticServer()
     await splashMinDuration
