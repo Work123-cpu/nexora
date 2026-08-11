@@ -421,6 +421,36 @@ function downloadFile(url, destPath, onProgress, redirectsLeft = 5) {
   })
 }
 
+/** Runs a command asynchronously and resolves with its exit status — never spawnSync here.
+ * pip installing the AI service's dependencies (numpy/pandas/scikit-learn/xgboost, several
+ * hundred MB) can take minutes, and spawnSync blocks Node's single main thread for the whole
+ * duration: the entire app — not just this install — stops responding to any input, redraw,
+ * or IPC, and Windows reports it as "Not Responding". onLine (optional) receives each output
+ * line as it streams, so slow steps can show real, moving progress instead of a static
+ * message that's indistinguishable from a hang. */
+function runCommand(exe, args, { cwd, onLine } = {}) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(exe, args, { cwd, windowsHide: true })
+    let stdout = ''
+    let stderr = ''
+    const feed = (chunk, into) => {
+      const text = chunk.toString()
+      into.text += text
+      if (onLine) for (const line of text.split(/\r?\n/)) if (line.trim()) onLine(line.trim())
+    }
+    const out = { text: '' }
+    const err = { text: '' }
+    child.stdout?.on('data', (d) => feed(d, out))
+    child.stderr?.on('data', (d) => feed(d, err))
+    child.on('error', reject)
+    child.on('close', (status) => {
+      stdout = out.text
+      stderr = err.text
+      resolve({ status, stdout, stderr })
+    })
+  })
+}
+
 async function installJavaSilently(onProgress) {
   onProgress('Looking up the latest Java 17 build…')
   const assets = await httpsGetJson(ADOPTIUM_ASSETS_API)
@@ -432,9 +462,7 @@ async function installJavaSilently(onProgress) {
   await downloadFile(installerUrl, msiPath, (pct) => onProgress(`Downloading Java 17… ${pct}%`))
 
   onProgress('Installing Java 17 (you may see a Windows permission prompt)…')
-  const result = spawnSync('msiexec.exe', ['/i', msiPath, '/quiet', '/norestart', 'ADDLOCAL=FeatureMain,FeatureEnvironment,FeatureJarFileRunWith,FeatureJavaHome'], {
-    windowsHide: true,
-  })
+  const result = await runCommand('msiexec.exe', ['/i', msiPath, '/quiet', '/norestart', 'ADDLOCAL=FeatureMain,FeatureEnvironment,FeatureJarFileRunWith,FeatureJavaHome'])
   if (result.status !== 0) throw new Error(`Java installer exited with code ${result.status}.`)
   onProgress('Java 17 installed.')
 }
@@ -447,7 +475,7 @@ async function installPythonSilently(onProgress) {
   // Per-user install (InstallAllUsers=0) — no admin/UAC prompt needed, and this app only
   // ever needs Python for its own bundled ai-service venv, not a system-wide install.
   onProgress('Installing Python…')
-  const result = spawnSync(exePath, ['/quiet', 'InstallAllUsers=0', 'PrependPath=1', 'Include_test=0'], { windowsHide: true })
+  const result = await runCommand(exePath, ['/quiet', 'InstallAllUsers=0', 'PrependPath=1', 'Include_test=0'])
   if (result.status !== 0) throw new Error(`Python installer exited with code ${result.status}.`)
   onProgress('Python installed.')
 }
@@ -463,13 +491,23 @@ async function bootstrapAiEnvironment(onProgress) {
 
   if (!fs.existsSync(venvDir)) {
     onProgress('Creating the AI service\'s Python environment…')
-    const venvResult = spawnSync(pythonExe, ['-m', 'venv', '.venv'], { cwd: aiServiceDir, windowsHide: true })
+    const venvResult = await runCommand(pythonExe, ['-m', 'venv', '.venv'], { cwd: aiServiceDir })
     if (venvResult.status !== 0) throw new Error(`Could not create the Python virtual environment (exit ${venvResult.status}).`)
   }
 
   onProgress('Installing AI service dependencies — this can take a few minutes…')
   const pipExe = path.join(venvDir, 'Scripts', 'pip.exe')
-  const pipResult = spawnSync(pipExe, ['install', '-r', 'requirements.txt'], { cwd: aiServiceDir, windowsHide: true, encoding: 'utf8' })
+  const pipResult = await runCommand(pipExe, ['install', '-r', 'requirements.txt'], {
+    cwd: aiServiceDir,
+    // pip prints a line per package as it works ("Collecting numpy", "Downloading pandas...",
+    // "Installing collected packages: ...") — surfacing those turns several minutes of an
+    // otherwise-static message into visibly moving progress.
+    onLine: (line) => {
+      if (/^(Collecting|Downloading|Installing|Building)\s/.test(line)) {
+        onProgress(`Installing AI service dependencies — ${line}`)
+      }
+    },
+  })
   if (pipResult.status !== 0) {
     log(`[setup] pip install failed: ${pipResult.stderr}`)
     throw new Error('Installing AI service dependencies failed — see View Error Log.')
