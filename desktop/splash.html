@@ -162,10 +162,34 @@
     from { width: 0; }
     to   { width: 150px; }
   }
+
+  /* frame:false removes the native minimize button, so this stands in for it — startup can
+     take a while (first MySQL/backend boot especially), and the user needs a way to get this
+     out from in front of whatever else they're doing without reaching for Task Manager. */
+  .minimize-btn {
+    position: absolute; top: 14px; right: 14px; z-index: 10;
+    width: 28px; height: 28px;
+    border: none; border-radius: 8px;
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(199, 210, 254, 0.75);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    -webkit-app-region: no-drag;
+    transition: background 0.15s, color 0.15s;
+  }
+  .minimize-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #e0e7ff;
+  }
 </style>
 </head>
 <body>
   <div class="panel">
+    <button class="minimize-btn" id="minimizeBtn" title="Minimize" aria-label="Minimize">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <line x1="1.5" y1="6" x2="10.5" y2="6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+      </svg>
+    </button>
     <canvas id="stars"></canvas>
     <div class="nebula"></div>
 
@@ -238,6 +262,10 @@
       if (el) el.textContent = text;
     });
   }
+
+  document.getElementById('minimizeBtn').addEventListener('click', () => {
+    window.nexoraSplash?.minimize?.();
+  });
 </script>
 </body>
 </html>

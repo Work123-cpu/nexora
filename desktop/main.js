@@ -598,18 +598,31 @@ ipcMain.handle('nexora:relaunch', () => {
   app.exit(0)
 })
 
+// frame:false strips the native minimize button along with the rest of the titlebar, so
+// splash.html has its own minimize control that calls this instead.
+ipcMain.handle('nexora:splash-minimize', () => {
+  if (currentSplash && !currentSplash.isDestroyed()) currentSplash.minimize()
+})
+
 // ---------------------------------------------------------------------------
 // Window + app lifecycle
 // ---------------------------------------------------------------------------
 // Tracked at module scope (not just inside createWindow) so the global uncaughtException
 // handler below can also close it — a defense-in-depth backstop against any startup failure
-// mode that isn't already caught by createWindow's own try/catch, so the frameless,
-// always-on-top splash can never again get stuck on screen with no way to close it.
+// mode that isn't already caught by createWindow's own try/catch, so the frameless splash
+// can never again get stuck on screen with no way to close it.
 let currentSplash = null
 
 /** Small frameless, transparent, rounded-corner window for the animated logo reveal — a
  * separate window (not the main one) so the rounded corners can actually show the desktop
- * through them, and so it can be closed outright once the real app is ready. */
+ * through them, and so it can be closed outright once the real app is ready.
+ *
+ * Deliberately NOT alwaysOnTop and NOT skipTaskbar: startup (first MySQL/backend/AI-service
+ * boot especially) can take well over a minute, and a topmost, taskbar-less window would sit
+ * on top of and block whatever else the user is doing for that whole time with no way to get
+ * it out of the way. It behaves like a normal (if unusually shaped) window — has a taskbar
+ * entry, can be alt-tabbed to, and gets a real minimize button since frame:false removes the
+ * native one (see the button wired up in splash.html via nexora:splash-minimize below). */
 function createSplashWindow() {
   const splash = new BrowserWindow({
     width: 640,
@@ -620,8 +633,6 @@ function createSplashWindow() {
     transparent: true,
     backgroundColor: '#00000000',
     hasShadow: false,
-    alwaysOnTop: true,
-    skipTaskbar: true,
     icon: ICON_PATH,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),

@@ -21,4 +21,5 @@ contextBridge.exposeInMainWorld('nexoraSetup', {
 // local service (MySQL/backend/AI service) comes up during startup.
 contextBridge.exposeInMainWorld('nexoraSplash', {
   onStatus: (callback) => ipcRenderer.on('nexora:status', (_event, text) => callback(text)),
+  minimize: () => ipcRenderer.invoke('nexora:splash-minimize'),
 })
