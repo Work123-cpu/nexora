@@ -17,7 +17,7 @@ import type { PurchaseOrderLineItem } from '@/types/entities/purchaseOrder'
 
 interface DraftLine {
   rawMaterialId: string
-  quantity: number
+  quantity: number | ''
 }
 
 export function PurchaseOrderCreatePage() {
@@ -54,7 +54,7 @@ export function PurchaseOrderCreatePage() {
 
   useEffect(() => {
     if (lines.length > 0 || rawMaterials.length === 0) return
-    setLines(prefillMaterial ? [{ rawMaterialId: prefillMaterial.id, quantity: prefillQuantity ?? 100 }] : [{ rawMaterialId: rawMaterials[0]!.id, quantity: 100 }])
+    setLines(prefillMaterial ? [{ rawMaterialId: prefillMaterial.id, quantity: prefillQuantity ?? '' }] : [{ rawMaterialId: rawMaterials[0]!.id, quantity: '' }])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawMaterials])
 
@@ -63,7 +63,7 @@ export function PurchaseOrderCreatePage() {
   const materialOptions = (materialsForVendor.length > 0 ? materialsForVendor : rawMaterials).map((rm) => ({ label: `${rm.name} (${rm.unit})`, value: rm.id }))
 
   const updateLine = (index: number, patch: Partial<DraftLine>) => setLines((prev) => prev.map((l, i) => (i === index ? { ...l, ...patch } : l)))
-  const addLine = () => setLines((prev) => [...prev, { rawMaterialId: materialOptions[0]!.value, quantity: 100 }])
+  const addLine = () => setLines((prev) => [...prev, { rawMaterialId: materialOptions[0]!.value, quantity: '' }])
   const removeLine = (index: number) => setLines((prev) => prev.filter((_, i) => i !== index))
 
   const lineItems: PurchaseOrderLineItem[] = lines.map((line) => {
@@ -71,7 +71,7 @@ export function PurchaseOrderCreatePage() {
     return {
       rawMaterialId: line.rawMaterialId,
       rawMaterialName: material?.name ?? 'Unknown',
-      quantity: line.quantity,
+      quantity: line.quantity === '' ? 0 : line.quantity,
       unit: material?.unit ?? '',
       unitCost: material?.unitCost ?? 0,
     }
@@ -129,11 +129,17 @@ export function PurchaseOrderCreatePage() {
             <div className="space-y-3">
               {lines.map((line, index) => {
                 const material = getRawMaterialById(line.rawMaterialId)
-                const subtotal = line.quantity * (material?.unitCost ?? 0)
+                const quantity = line.quantity === '' ? 0 : line.quantity
+                const subtotal = quantity * (material?.unitCost ?? 0)
                 return (
                   <div key={index} className="grid grid-cols-1 gap-2 rounded-xl border border-border p-3 sm:grid-cols-[2fr_1fr_1fr_auto]">
                     <Select options={materialOptions} value={line.rawMaterialId} onChange={(e) => updateLine(index, { rawMaterialId: e.target.value })} />
-                    <Input type="number" value={line.quantity} onChange={(e) => updateLine(index, { quantity: Number(e.target.value) })} placeholder="Quantity" />
+                    <Input
+                      type="number"
+                      value={line.quantity}
+                      onChange={(e) => updateLine(index, { quantity: e.target.value === '' ? '' : Number(e.target.value) })}
+                      placeholder="e.g. 100"
+                    />
                     <div className="flex items-center px-2 text-sm font-medium text-foreground">{formatCurrency(subtotal, true)}</div>
                     <Button type="button" variant="ghost" size="icon" aria-label="Remove line" onClick={() => removeLine(index)}>
                       <Trash2 className="size-4 text-danger" />

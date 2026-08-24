@@ -32,7 +32,8 @@ const ASSIGNABLE_ROLES = ALL_ROLES.filter((r) => r !== 'vendor')
 export function TeamMembersPage() {
   const { session } = useAuth()
   const { toast } = useToast()
-  const { data: members, isLoading } = useTeamMembers()
+  const { data: unsortedMembers, isLoading } = useTeamMembers()
+  const members = unsortedMembers ? [...unsortedMembers].sort((a, b) => a.name.localeCompare(b.name)) : unsortedMembers
   const createMember = useCreateTeamMember()
   const updateRole = useUpdateTeamMemberRole()
   const removeMember = useRemoveTeamMember()

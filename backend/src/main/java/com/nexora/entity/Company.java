@@ -20,6 +20,17 @@ public class Company {
     @Column(nullable = false)
     private String locale = "en-IN";
 
+    // Nullable — set only once the user adds a free Alpha Vantage key in Settings. Powers
+    // MarketDataService's server-side price-move notifications; the frontend also keeps its own
+    // copy in localStorage for the client-side Market Intelligence page (see SettingsPage.tsx).
+    @Column(name = "alpha_vantage_api_key")
+    private String alphaVantageApiKey;
+
+    // Nullable — set only once the user adds a free data.gov.in key in Settings. Powers
+    // AgmarknetService's Indian mandi price lookups for agricultural raw materials.
+    @Column(name = "data_gov_in_api_key")
+    private String dataGovInApiKey;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -31,6 +42,10 @@ public class Company {
     public void setCurrencyCode(String currencyCode) { this.currencyCode = currencyCode; }
     public String getLocale() { return locale; }
     public void setLocale(String locale) { this.locale = locale; }
+    public String getAlphaVantageApiKey() { return alphaVantageApiKey; }
+    public void setAlphaVantageApiKey(String alphaVantageApiKey) { this.alphaVantageApiKey = alphaVantageApiKey; }
+    public String getDataGovInApiKey() { return dataGovInApiKey; }
+    public void setDataGovInApiKey(String dataGovInApiKey) { this.dataGovInApiKey = dataGovInApiKey; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 }

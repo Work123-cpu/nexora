@@ -6,7 +6,7 @@ import { Checkbox } from '@/shared/ui/Checkbox'
 import { Button } from '@/shared/ui/Button'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { useVendors } from '@/features/vendors/hooks/useVendors'
-import { calendarEvents } from '@/mocks/seed/calendarEvents.seed'
+import { useCalendarEvents } from '@/features/business-calendar/hooks/useCalendarEvents'
 import { formatNumber } from '@/shared/lib/formatters'
 import { useWizard } from '../context/WizardContext'
 import { WizardStepLayout } from '../components/WizardStepLayout'
@@ -82,6 +82,8 @@ export function BillingStep() {
 
 export function CalendarStep() {
   const { data, updateData, next, back } = useWizard()
+  const { data: calendarEventsData } = useCalendarEvents()
+  const calendarEvents = calendarEventsData ?? []
   return (
     <WizardStepLayout title="Business Calendar" description="We've pre-loaded common holidays and maintenance windows." onNext={next} onBack={back}>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">

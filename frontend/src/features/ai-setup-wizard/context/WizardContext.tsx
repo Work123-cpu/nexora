@@ -10,9 +10,16 @@ export interface WizardData {
   completed: boolean
 }
 
+/** Exported so WelcomeChoicePage can force a fresh start for a brand-new company — these keys
+ * aren't scoped per-company, so a leftover step from a previously completed wizard (this
+ * browser's own or another account's) would otherwise make setup resume mid-flow instead of
+ * starting at Welcome. */
+export const WIZARD_STEP_KEY = 'Nexora.wizard-step'
+export const WIZARD_DATA_KEY = 'Nexora.wizard-data'
+
 const DEFAULT_DATA: WizardData = {
   companyName: '',
-  industry: '',
+  industry: 'Food & Beverage Manufacturing',
   companySize: '1-10 employees',
   billingProvider: 'none',
   acknowledgedCalendar: false,
@@ -46,8 +53,8 @@ interface WizardContextValue {
 const WizardContext = createContext<WizardContextValue | null>(null)
 
 export function WizardProvider({ children }: { children: ReactNode }) {
-  const [step, setStep] = useLocalStorage('Nexora.wizard-step', 0)
-  const [data, setData] = useLocalStorage<WizardData>('Nexora.wizard-data', DEFAULT_DATA)
+  const [step, setStep] = useLocalStorage(WIZARD_STEP_KEY, 0)
+  const [data, setData] = useLocalStorage<WizardData>(WIZARD_DATA_KEY, DEFAULT_DATA)
 
   const updateData = (patch: Partial<WizardData>) => setData((prev) => ({ ...prev, ...patch }))
   const next = () => setStep((s) => Math.min(WIZARD_STEPS.length - 1, s + 1))

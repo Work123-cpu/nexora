@@ -31,10 +31,20 @@ export function PurchaseOrderListPage() {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<PurchaseOrderStatus | undefined>(undefined)
+  const [sortBy, setSortBy] = useState<string | undefined>('poNumber')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const { page, pageSize, setPage } = usePagination(1, 10)
   const debouncedSearch = useDebounce(search)
 
-  const { data, isLoading } = usePurchaseOrders({ page, pageSize, search: debouncedSearch, status })
+  const { data, isLoading } = usePurchaseOrders({ page, pageSize, search: debouncedSearch, status, sortBy, sortDir })
+
+  const handleSort = (key: string) => {
+    if (sortBy === key) setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
+    else {
+      setSortBy(key)
+      setSortDir('asc')
+    }
+  }
   // Stat cards summarize every PO, not just the current page — a separate, unfiltered fetch.
   const { data: allData } = usePurchaseOrders({ pageSize: 10000 })
   const allPurchaseOrders = allData?.items ?? []
@@ -49,6 +59,7 @@ export function PurchaseOrderListPage() {
     {
       key: 'poNumber',
       header: 'PO Number',
+      sortable: true,
       render: (po) => (
         <div className="flex items-center gap-2">
           <div className="flex size-8 items-center justify-center rounded-lg bg-primary-soft text-primary">
@@ -60,9 +71,9 @@ export function PurchaseOrderListPage() {
     },
     { key: 'vendor', header: 'Vendor', render: (po) => getVendorById(po.vendorId)?.name ?? '—' },
     { key: 'items', header: 'Items', render: (po) => `${po.items.length} materials` },
-    { key: 'total', header: 'Total', render: (po) => formatCompactCurrency(po.totalAmount) },
+    { key: 'totalAmount', header: 'Total', sortable: true, render: (po) => formatCompactCurrency(po.totalAmount) },
     { key: 'status', header: 'Status', render: (po) => <POStatusBadge status={po.status} /> },
-    { key: 'expected', header: 'Expected Delivery', render: (po) => formatDate(po.expectedDeliveryDate) },
+    { key: 'expectedDeliveryDate', header: 'Expected Delivery', sortable: true, render: (po) => formatDate(po.expectedDeliveryDate) },
   ]
 
   return (
@@ -107,6 +118,9 @@ export function PurchaseOrderListPage() {
         isLoading={isLoading}
         rowKey={(po) => po.id}
         onRowClick={(po) => navigate(`/app/procurement/purchase-orders/${po.id}`)}
+        sortBy={sortBy}
+        sortDir={sortDir}
+        onSortChange={handleSort}
         emptyTitle="No purchase orders found"
       />
 

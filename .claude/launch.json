@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--prefix", "frontend"],
       "port": 5173
+    },
+    {
+      "name": "Nexora-backend",
+      "runtimeExecutable": "C:\\Users\\saile\\Music\\Minipro2\\Claude\\.tools\\apache-maven-3.9.9\\bin\\mvn.cmd",
+      "runtimeArgs": ["-f", "backend/pom.xml", "spring-boot:run"],
+      "port": 8080
     }
   ]
 }

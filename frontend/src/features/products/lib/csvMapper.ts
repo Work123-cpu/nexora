@@ -1,4 +1,3 @@
-import { PRODUCT_CATEGORIES } from '@/mocks/seed/products.seed'
 import type { ProductStatus } from '@/types/entities/product'
 import type { ProductInput } from '../services/productService'
 
@@ -23,10 +22,13 @@ export function mapProductCsvRow(row: Record<string, string>): { input: ProductI
   const statusRaw = row.status?.trim().toLowerCase() as ProductStatus
   const status = VALID_PRODUCT_STATUSES.includes(statusRaw) ? statusRaw : 'active'
 
+  const category = row.category?.trim()
+  if (!category) return { error: 'Missing category — even a new category name is fine, it will be added automatically.' }
+
   return {
     input: {
       name,
-      category: row.category?.trim() || PRODUCT_CATEGORIES[0]!,
+      category,
       description: row.description?.trim() ?? '',
       unitOfMeasure: row.unitOfMeasure?.trim() || 'unit',
       unitPrice,

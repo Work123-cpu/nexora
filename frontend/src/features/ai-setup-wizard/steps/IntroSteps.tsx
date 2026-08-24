@@ -1,16 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, Boxes, Plus, Sparkles, Warehouse } from 'lucide-react'
+import { Boxes, Plus, Sparkles, Warehouse } from 'lucide-react'
 import { Input } from '@/shared/ui/Input'
 import { Select } from '@/shared/ui/Select'
 import { Card, CardContent } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
-import { Dialog } from '@/shared/ui/Dialog'
-import { useToast } from '@/shared/ui/Toast'
 import { useWarehouses } from '@/features/warehouse/hooks/useWarehouses'
 import { useAuth } from '@/features/auth/context/AuthContext'
 import { formatNumber } from '@/shared/lib/formatters'
-import { resetAllMockData } from '@/mocks/resetAllMockData'
 import { useWizard } from '../context/WizardContext'
 import { WizardStepLayout } from '../components/WizardStepLayout'
 
@@ -26,11 +23,6 @@ const INDUSTRY_OPTIONS = [
 ].map((label) => ({ label, value: label }))
 
 const SIZE_OPTIONS = ['1-10 employees', '11-50 employees', '51-200 employees', '201-1000 employees', '1000+ employees'].map((label) => ({ label, value: label }))
-
-/** The "clear demo data" reset only clears the frontend mock arrays — meaningless (and would be
- * misleading) once the real backend is the data source, since a fresh company registration is
- * already a blank slate in MySQL. Only show it when running against mock data. */
-const USE_MOCK_BACKEND = import.meta.env.VITE_USE_MOCK_BACKEND !== 'false'
 
 export function WelcomeStep() {
   const { next } = useWizard()
@@ -58,19 +50,11 @@ export function WelcomeStep() {
 export function CompanyStep() {
   const { data, updateData, next, back } = useWizard()
   const { session } = useAuth()
-  const { toast } = useToast()
-  const [confirmReset, setConfirmReset] = useState(false)
 
   useEffect(() => {
     if (!data.companyName && session?.user.companyName) updateData({ companyName: session.user.companyName })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session])
-
-  const handleReset = () => {
-    resetAllMockData()
-    setConfirmReset(false)
-    toast({ title: 'Blank slate ready', description: 'Demo data cleared — the rest of this wizard now reflects your empty workspace.', tone: 'success' })
-  }
 
   return (
     <WizardStepLayout title="Company Information" description="Tell us a bit about your business." onNext={next} onBack={back}>
@@ -82,43 +66,7 @@ export function CompanyStep() {
           Nexora never assumes your business type from this field alone — recommendations are always derived from your actual
           products, materials, and inventory data.
         </p>
-
-        {USE_MOCK_BACKEND && (
-          <div className="rounded-xl border border-dashed border-border p-4">
-            <p className="text-sm font-medium text-foreground">Not Annapurna Foods?</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              The demo comes pre-loaded with sample bakery data so the app doesn't feel empty. If you're setting this up for a real,
-              different company, clear it first — the next few steps will let you add your own products, materials, and warehouses
-              instead.
-            </p>
-            <Button type="button" variant="outline" size="sm" className="mt-3" leftIcon={<AlertTriangle className="size-3.5" />} onClick={() => setConfirmReset(true)}>
-              Clear demo data & start fresh
-            </Button>
-          </div>
-        )}
       </div>
-
-      <Dialog
-        open={confirmReset}
-        onClose={() => setConfirmReset(false)}
-        title="Clear demo data?"
-        description="This cannot be undone."
-        footer={
-          <>
-            <Button variant="outline" onClick={() => setConfirmReset(false)}>
-              Cancel
-            </Button>
-            <Button variant="danger" onClick={handleReset}>
-              Clear everything
-            </Button>
-          </>
-        }
-      >
-        <p className="text-sm text-muted-foreground">
-          This removes every demo product, raw material, BOM, warehouse, vendor, and purchase order from this browser, so the rest
-          of the wizard reflects a truly empty workspace ready for your own data.
-        </p>
-      </Dialog>
     </WizardStepLayout>
   )
 }

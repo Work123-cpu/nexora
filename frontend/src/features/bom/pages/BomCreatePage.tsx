@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { PageHeader } from '@/shared/ui/layout/PageHeader'
 import { Breadcrumbs } from '@/shared/ui/Breadcrumbs'
 import { useToast } from '@/shared/ui/Toast'
@@ -10,6 +10,8 @@ export function BomCreatePage() {
   const navigate = useNavigate()
   const { toast } = useToast()
   const createBom = useCreateBOM()
+  const [searchParams] = useSearchParams()
+  const productId = searchParams.get('productId') ?? undefined
 
   const handleSubmit = async (input: BomInput) => {
     await createBom.mutateAsync(input)
@@ -20,7 +22,13 @@ export function BomCreatePage() {
   return (
     <div>
       <PageHeader title="Create BOM" breadcrumbs={<Breadcrumbs items={[{ label: 'Bill of Materials', to: '/app/bom' }, { label: 'Create' }]} />} />
-      <BomForm onSubmit={handleSubmit} isSubmitting={createBom.isPending} submitLabel="Create BOM" />
+      <BomForm
+        onSubmit={handleSubmit}
+        isSubmitting={createBom.isPending}
+        submitLabel="Create BOM"
+        initialProductId={productId}
+        lockProduct={Boolean(productId)}
+      />
     </div>
   )
 }

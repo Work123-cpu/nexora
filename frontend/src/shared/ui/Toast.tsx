@@ -53,7 +53,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={{ toast }}>
       {children}
       {createPortal(
-        <div className="fixed bottom-4 right-4 z-[200] flex w-full max-w-sm flex-col gap-2">
+        <div className="pointer-events-none fixed bottom-4 right-4 z-[200] flex w-full max-w-sm flex-col gap-2">
           <AnimatePresence>
             {toasts.map((t) => {
               const Icon = ICONS[t.tone]
@@ -63,7 +63,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   initial={{ opacity: 0, y: 20, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, x: 40, scale: 0.95 }}
-                  className="flex items-start gap-3 rounded-xl border border-border bg-surface p-4 card-shadow-lg glass-elevated"
+                  className="pointer-events-none flex items-start gap-3 rounded-xl border border-border bg-surface p-4 card-shadow-lg glass-elevated"
                 >
                   <Icon className={cn('mt-0.5 size-5 shrink-0', TONE_CLASSES[t.tone])} />
                   <div className="flex-1">
@@ -72,7 +72,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   </div>
                   <button
                     onClick={() => dismiss(t.id)}
-                    className="text-muted-foreground transition-colors hover:text-foreground"
+                    className="pointer-events-auto text-muted-foreground transition-colors hover:text-foreground"
                     aria-label="Dismiss notification"
                   >
                     <X className="size-4" />

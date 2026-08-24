@@ -9,7 +9,6 @@ import { LoadingScreen } from '@/shared/ui/LoadingScreen'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { useToast } from '@/shared/ui/Toast'
 import { formatCurrency, formatDate } from '@/shared/lib/formatters'
-import { exportToPdf } from '@/shared/lib/exportPdf'
 import { useVendor } from '@/features/vendors/hooks/useVendors'
 import { usePurchaseOrder, useAdvancePurchaseOrder } from '../hooks/usePurchaseOrders'
 import { purchaseOrderService } from '../services/purchaseOrderService'
@@ -54,13 +53,14 @@ export function PurchaseOrderDetailPage() {
     toast({ title: 'Purchase order cancelled', tone: 'warning' })
   }
 
-  const handleDownloadPdf = () => {
+  const handleDownloadPdf = async () => {
     const rows = po.items.map((item) => ({
       material: item.rawMaterialName,
       quantity: `${item.quantity} ${item.unit}`,
       unitCost: formatCurrency(item.unitCost, true),
       subtotal: formatCurrency(item.quantity * item.unitCost, true),
     }))
+    const { exportToPdf } = await import('@/shared/lib/exportPdf')
     exportToPdf(po.poNumber, rows, `Purchase Order ${po.poNumber} — ${vendor?.name ?? ''}`)
     toast({ title: 'PDF downloaded', description: `${po.poNumber}.pdf has been downloaded.`, tone: 'success' })
   }

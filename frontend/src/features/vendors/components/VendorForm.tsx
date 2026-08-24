@@ -6,17 +6,20 @@ import { Select } from '@/shared/ui/Select'
 import { CategorySelect } from '@/shared/ui/CategorySelect'
 import { Checkbox } from '@/shared/ui/Checkbox'
 import { Button } from '@/shared/ui/Button'
-import { vendors } from '@/mocks/seed/vendors.seed'
 import { useRawMaterials } from '@/features/raw-materials/hooks/useRawMaterials'
 import type { VendorInput } from '../services/vendorService'
 import type { Vendor } from '@/types/entities/vendor'
+import { VENDOR_CATEGORIES } from '../constants'
 
-const CATEGORY_OPTIONS = Array.from(new Set(vendors.map((v) => v.category)))
+const CATEGORY_OPTIONS = VENDOR_CATEGORIES
 const STATUS_OPTIONS = [
   { label: 'Active', value: 'active' },
   { label: 'Under Review', value: 'under-review' },
   { label: 'Inactive', value: 'inactive' },
 ]
+
+type NumericField = 'rating' | 'onTimeDeliveryPct' | 'qualityScorePct' | 'leadTimeDays' | 'activeContracts'
+type FormState = Omit<VendorInput, NumericField> & Record<NumericField, number | ''>
 
 interface VendorFormProps {
   initialValue?: Vendor
@@ -25,22 +28,25 @@ interface VendorFormProps {
   submitLabel?: string
 }
 
+const PERFORMANCE_HINT = 'Starting estimate for a new vendor — adjust it later as you track their actual performance.'
+const LEAD_TIME_HINT = 'Typical days between placing an order with this vendor and receiving it — used to time reorders.'
+
 export function VendorForm({ initialValue, onSubmit, isSubmitting, submitLabel = 'Save vendor' }: VendorFormProps) {
   const { data: materialsData } = useRawMaterials({ pageSize: 10000 })
   const rawMaterials = materialsData?.items ?? []
-  const [form, setForm] = useState<VendorInput>({
+  const [form, setForm] = useState<FormState>({
     name: initialValue?.name ?? '',
-    category: initialValue?.category ?? CATEGORY_OPTIONS[0] ?? 'Grains',
+    category: initialValue?.category ?? '',
     contactName: initialValue?.contactName ?? '',
     email: initialValue?.email ?? '',
     phone: initialValue?.phone ?? '',
     city: initialValue?.city ?? '',
     country: initialValue?.country ?? 'India',
-    rating: initialValue?.rating ?? 4,
-    onTimeDeliveryPct: initialValue?.onTimeDeliveryPct ?? 90,
-    qualityScorePct: initialValue?.qualityScorePct ?? 90,
-    leadTimeDays: initialValue?.leadTimeDays ?? 5,
-    activeContracts: initialValue?.activeContracts ?? 0,
+    rating: initialValue?.rating ?? '',
+    onTimeDeliveryPct: initialValue?.onTimeDeliveryPct ?? '',
+    qualityScorePct: initialValue?.qualityScorePct ?? '',
+    leadTimeDays: initialValue?.leadTimeDays ?? '',
+    activeContracts: initialValue?.activeContracts ?? '',
     materialsSupplied: initialValue?.materialsSupplied ?? [],
     status: initialValue?.status ?? 'active',
   })
@@ -59,11 +65,19 @@ export function VendorForm({ initialValue, onSubmit, isSubmitting, submitLabel =
     e.preventDefault()
     const nextErrors: Record<string, string> = {}
     if (!form.name.trim()) nextErrors.name = 'Vendor name is required.'
+    if (!form.category.trim()) nextErrors.category = 'Category is required — type a new one to add it.'
     if (!form.email.trim()) nextErrors.email = 'Contact email is required.'
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
 
-    await onSubmit(form)
+    await onSubmit({
+      ...form,
+      rating: form.rating === '' ? 0 : form.rating,
+      onTimeDeliveryPct: form.onTimeDeliveryPct === '' ? 0 : form.onTimeDeliveryPct,
+      qualityScorePct: form.qualityScorePct === '' ? 0 : form.qualityScorePct,
+      leadTimeDays: form.leadTimeDays === '' ? 0 : form.leadTimeDays,
+      activeContracts: form.activeContracts === '' ? 0 : form.activeContracts,
+    })
   }
 
   return (
@@ -77,6 +91,7 @@ export function VendorForm({ initialValue, onSubmit, isSubmitting, submitLabel =
               defaults={CATEGORY_OPTIONS}
               value={form.category}
               onChange={(category) => setForm({ ...form, category })}
+              error={errors.category}
             />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -97,20 +112,26 @@ export function VendorForm({ initialValue, onSubmit, isSubmitting, submitLabel =
             <Input
               label="On-time delivery (%)"
               type="number"
+              placeholder="e.g. 95"
+              hint={PERFORMANCE_HINT}
               value={form.onTimeDeliveryPct}
-              onChange={(e) => setForm({ ...form, onTimeDeliveryPct: Number(e.target.value) })}
+              onChange={(e) => setForm({ ...form, onTimeDeliveryPct: e.target.value === '' ? '' : Number(e.target.value) })}
             />
             <Input
               label="Quality score (%)"
               type="number"
+              placeholder="e.g. 90"
+              hint={PERFORMANCE_HINT}
               value={form.qualityScorePct}
-              onChange={(e) => setForm({ ...form, qualityScorePct: Number(e.target.value) })}
+              onChange={(e) => setForm({ ...form, qualityScorePct: e.target.value === '' ? '' : Number(e.target.value) })}
             />
             <Input
               label="Lead time (days)"
               type="number"
+              placeholder="e.g. 7"
+              hint={LEAD_TIME_HINT}
               value={form.leadTimeDays}
-              onChange={(e) => setForm({ ...form, leadTimeDays: Number(e.target.value) })}
+              onChange={(e) => setForm({ ...form, leadTimeDays: e.target.value === '' ? '' : Number(e.target.value) })}
             />
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
@@ -120,14 +141,16 @@ export function VendorForm({ initialValue, onSubmit, isSubmitting, submitLabel =
               step="0.1"
               min={0}
               max={5}
+              placeholder="e.g. 4"
               value={form.rating}
-              onChange={(e) => setForm({ ...form, rating: Number(e.target.value) })}
+              onChange={(e) => setForm({ ...form, rating: e.target.value === '' ? '' : Number(e.target.value) })}
             />
             <Input
               label="Active contracts"
               type="number"
+              placeholder="e.g. 2"
               value={form.activeContracts}
-              onChange={(e) => setForm({ ...form, activeContracts: Number(e.target.value) })}
+              onChange={(e) => setForm({ ...form, activeContracts: e.target.value === '' ? '' : Number(e.target.value) })}
             />
             <Select
               label="Status"

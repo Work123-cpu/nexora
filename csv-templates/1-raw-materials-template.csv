@@ -1,0 +1,3 @@
+name,code,category,unit,unitCost,leadTimeDays,vendor,isPerishable
+Example Material A,RM-001,Grains,kg,50,7,Your Vendor Name,false
+Example Material B,RM-002,Packaging,unit,5,3,Your Vendor Name,false

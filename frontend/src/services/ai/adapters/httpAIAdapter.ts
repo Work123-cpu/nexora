@@ -1,5 +1,7 @@
 import type { IAIService } from '../AIServiceInterface'
 import type {
+  BomSuggestRequest,
+  BomSuggestResponse,
   ChatRequest,
   ChatResponse,
   ExplainRequest,
@@ -67,6 +69,14 @@ export const httpAIAdapter: IAIService = {
       return await post<HelpResponse>('/api/ai/help', req)
     } catch {
       return { answer: FALLBACK_MESSAGE }
+    }
+  },
+
+  async suggestBom(req: BomSuggestRequest): Promise<BomSuggestResponse> {
+    try {
+      return await post<BomSuggestResponse>('/api/ai/bom-suggest', req)
+    } catch {
+      return { materials: [] }
     }
   },
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { PlusCircle, Receipt } from 'lucide-react'
+import { PlusCircle, Receipt, TrendingUp, Upload } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/layout/PageHeader'
 import { Button } from '@/shared/ui/Button'
 import { SearchInput } from '@/shared/ui/SearchInput'
@@ -8,22 +8,45 @@ import { DataTable, type DataTableColumn } from '@/shared/ui/DataTable'
 import { Pagination } from '@/shared/ui/Pagination'
 import { StatCard } from '@/shared/ui/StatCard'
 import { Badge } from '@/shared/ui/Badge'
+import { Dialog } from '@/shared/ui/Dialog'
+import { BulkImportDialog } from '@/shared/ui/BulkImportDialog'
 import { RoleGuard } from '@/app/router/RoleGuard'
 import { useDebounce } from '@/shared/hooks/useDebounce'
 import { usePagination } from '@/shared/hooks/usePagination'
 import { formatCompactCurrency, formatDate, formatNumber } from '@/shared/lib/formatters'
+import { useProducts } from '@/features/products/hooks/useProducts'
+import { useWarehouses } from '@/features/warehouse/hooks/useWarehouses'
 import type { Bill } from '@/types/entities/bill'
-import { useBills } from '../hooks/useBills'
+import { useBills, useCreateBill } from '../hooks/useBills'
+import type { BillInput } from '../services/billService'
+import { mapSalesHistoryCsvRow, SALES_HISTORY_CSV_TEMPLATE } from '../lib/salesHistoryCsvMapper'
 
 export function BillListPage() {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
+  const [importOpen, setImportOpen] = useState(false)
+  const [importedCount, setImportedCount] = useState<number | null>(null)
+  const [sortBy, setSortBy] = useState<string | undefined>('billNumber')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const { page, pageSize, setPage } = usePagination(1, 10)
   const debouncedSearch = useDebounce(search)
+  const createBill = useCreateBill()
 
-  const { data, isLoading } = useBills({ page, pageSize, search: debouncedSearch })
+  const { data, isLoading } = useBills({ page, pageSize, search: debouncedSearch, sortBy, sortDir })
+
+  const handleSort = (key: string) => {
+    if (sortBy === key) setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
+    else {
+      setSortBy(key)
+      setSortDir('asc')
+    }
+  }
   const { data: allData } = useBills({ pageSize: 10000 })
   const allBills = allData?.items ?? []
+  const { data: productsData } = useProducts({ pageSize: 10000 })
+  const products = productsData?.items ?? []
+  const { data: warehousesData } = useWarehouses({ pageSize: 10000 })
+  const warehouses = warehousesData?.items ?? []
 
   const completed = allBills.filter((b) => b.status === 'completed')
   const totalRevenue = completed.reduce((sum, b) => sum + b.totalAmount, 0)
@@ -32,6 +55,7 @@ export function BillListPage() {
     {
       key: 'billNumber',
       header: 'Bill Number',
+      sortable: true,
       render: (b) => (
         <div className="flex items-center gap-2">
           <div className="flex size-8 items-center justify-center rounded-lg bg-primary-soft text-primary">
@@ -41,11 +65,11 @@ export function BillListPage() {
         </div>
       ),
     },
-    { key: 'customer', header: 'Customer', render: (b) => b.customerName },
+    { key: 'customerName', header: 'Customer', sortable: true, render: (b) => b.customerName },
     { key: 'items', header: 'Items', render: (b) => `${b.items.length} product${b.items.length === 1 ? '' : 's'}` },
-    { key: 'total', header: 'Total', render: (b) => formatCompactCurrency(b.totalAmount) },
+    { key: 'totalAmount', header: 'Total', sortable: true, render: (b) => formatCompactCurrency(b.totalAmount) },
     { key: 'status', header: 'Status', render: (b) => <Badge tone={b.status === 'completed' ? 'success' : 'neutral'} className="capitalize">{b.status}</Badge> },
-    { key: 'date', header: 'Date', render: (b) => formatDate(b.createdAt) },
+    { key: 'createdAt', header: 'Date', sortable: true, render: (b) => formatDate(b.createdAt) },
   ]
 
   return (
@@ -55,9 +79,14 @@ export function BillListPage() {
         description="Bill a customer for products — completing a bill deducts the sold quantity from real inventory."
         actions={
           <RoleGuard resource="billing" action="create">
-            <Button leftIcon={<PlusCircle className="size-4" />} onClick={() => navigate('/app/billing/new')}>
-              New Bill
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" leftIcon={<Upload className="size-4" />} onClick={() => setImportOpen(true)}>
+                Import Sales History
+              </Button>
+              <Button leftIcon={<PlusCircle className="size-4" />} onClick={() => navigate('/app/billing/new')}>
+                New Bill
+              </Button>
+            </div>
           </RoleGuard>
         }
       />
@@ -78,6 +107,9 @@ export function BillListPage() {
         isLoading={isLoading}
         rowKey={(b) => b.id}
         onRowClick={(b) => navigate(`/app/billing/${b.id}`)}
+        sortBy={sortBy}
+        sortDir={sortDir}
+        onSortChange={handleSort}
         emptyTitle="No bills yet"
         emptyDescription="Create your first bill to record a sale and update stock."
       />
@@ -87,6 +119,41 @@ export function BillListPage() {
           <Pagination page={data.page} totalPages={data.totalPages} onPageChange={setPage} total={data.total} pageSize={data.pageSize} />
         </div>
       )}
+
+      <BulkImportDialog<BillInput>
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        title="Import Sales History"
+        description="Upload past sales so demand forecasting can learn from your real history. One row = one product sold on one date."
+        templateFilename={SALES_HISTORY_CSV_TEMPLATE.filename}
+        templateHeaders={SALES_HISTORY_CSV_TEMPLATE.headers}
+        templateExampleRow={SALES_HISTORY_CSV_TEMPLATE.exampleRow(products)}
+        mapRow={(row) => mapSalesHistoryCsvRow(row, products, warehouses)}
+        onImportRow={(input) => createBill.mutateAsync(input)}
+        onImported={(count) => setImportedCount(count)}
+      />
+
+      <Dialog
+        open={importedCount !== null}
+        onClose={() => setImportedCount(null)}
+        title="Sales history imported"
+        description={`${importedCount ?? 0} historical sale${importedCount === 1 ? '' : 's'} added. Products with enough history now feed real demand forecasts.`}
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setImportedCount(null)}>
+              Close
+            </Button>
+            <Button leftIcon={<TrendingUp className="size-4" />} onClick={() => navigate('/app/reports/forecast')}>
+              View demand forecast
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-muted-foreground">
+          A product needs at least 28 days of real sales history before its forecast switches from a category estimate to one based on your
+          own data.
+        </p>
+      </Dialog>
     </div>
   )
 }

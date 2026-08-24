@@ -1,15 +1,7 @@
 import type { PurchaseOrder, PurchaseOrderLineItem, PurchaseOrderStatus, PurchaseOrderTimelineEvent } from '@/types/entities/purchaseOrder'
 import type { PaginatedResponse, QueryParams } from '@/services/base/types'
-import { mockClient, paginateFilterSort, findOrThrow, insertMock, updateMock } from '@/services/base/mockClient'
-import { purchaseOrders } from '@/mocks/seed/purchaseOrders.seed'
-import { makeIdFactory } from '@/mocks/generators/idGenerator'
-import { getVendorById } from '@/mocks/seed/vendors.seed'
+import { paginateFilterSort } from '@/services/base/paginate'
 import { apiClient } from '@/shared/lib/apiClient'
-
-const nextId = makeIdFactory('po-new')
-
-/** Flip to "false" once the Spring Boot backend (backend/) is running — see AuthContext.tsx. */
-const USE_MOCK_BACKEND = import.meta.env.VITE_USE_MOCK_BACKEND !== 'false'
 
 export interface GetPurchaseOrdersParams extends QueryParams {
   status?: PurchaseOrderStatus
@@ -59,57 +51,7 @@ export function fromBackendPO(po: BackendPurchaseOrder): PurchaseOrder {
   }
 }
 
-const mockPurchaseOrderService = {
-  getPurchaseOrders: (params: GetPurchaseOrdersParams = {}): Promise<PaginatedResponse<PurchaseOrder>> =>
-    mockClient.request(() =>
-      paginateFilterSort(purchaseOrders, {
-        ...params,
-        searchKeys: ['poNumber'],
-        filter: (po) => (params.status ? po.status === params.status : true) && (params.vendorId ? po.vendorId === params.vendorId : true),
-      }),
-    ),
-
-  getPurchaseOrderById: (id: string): Promise<PurchaseOrder> => mockClient.request(() => findOrThrow(purchaseOrders, id)),
-
-  createPurchaseOrder: (input: PurchaseOrderInput): Promise<PurchaseOrder> =>
-    mockClient.request(() => {
-      const now = new Date().toISOString()
-      const totalAmount = Number(input.items.reduce((sum, item) => sum + item.quantity * item.unitCost, 0).toFixed(2))
-      const po: PurchaseOrder = {
-        id: nextId(),
-        poNumber: `PO-${Math.floor(3000 + Math.random() * 6000)}`,
-        vendorId: input.vendorId,
-        status: 'pending_approval',
-        items: input.items,
-        totalAmount,
-        createdAt: now,
-        expectedDeliveryDate: input.expectedDeliveryDate,
-        createdBy: input.createdBy,
-        timeline: [
-          { status: 'draft', date: now },
-          { status: 'pending_approval', date: now },
-        ],
-        sourceRecommendationId: input.sourceRecommendationId,
-      }
-      return insertMock(purchaseOrders, po)
-    }),
-
-  advanceStatus: (id: string, status: PurchaseOrderStatus, note?: string, approvedBy?: string): Promise<PurchaseOrder> =>
-    mockClient.request(() => {
-      const po = findOrThrow(purchaseOrders, id)
-      const timeline = [...po.timeline, { status, date: new Date().toISOString(), note }]
-      return updateMock(purchaseOrders, id, { status, timeline, approvedBy: approvedBy ?? po.approvedBy })
-    }),
-
-  getNextStage: (status: PurchaseOrderStatus): PurchaseOrderStatus | undefined => {
-    const index = STAGE_ORDER.indexOf(status)
-    return index >= 0 && index < STAGE_ORDER.length - 1 ? STAGE_ORDER[index + 1] : undefined
-  },
-
-  getVendorName: (vendorId: string): string => getVendorById(vendorId)?.name ?? 'Unknown vendor',
-}
-
-const httpPurchaseOrderService = {
+export const purchaseOrderService = {
   getPurchaseOrders: async (params: GetPurchaseOrdersParams = {}): Promise<PaginatedResponse<PurchaseOrder>> => {
     const all = (
       await apiClient.get<BackendPurchaseOrder[]>('/purchase-orders', { params: { vendorId: params.vendorId } })
@@ -134,8 +76,4 @@ const httpPurchaseOrderService = {
     const index = STAGE_ORDER.indexOf(status)
     return index >= 0 && index < STAGE_ORDER.length - 1 ? STAGE_ORDER[index + 1] : undefined
   },
-
-  getVendorName: (vendorId: string): string => getVendorById(vendorId)?.name ?? 'Unknown vendor',
 }
-
-export const purchaseOrderService = USE_MOCK_BACKEND ? mockPurchaseOrderService : httpPurchaseOrderService

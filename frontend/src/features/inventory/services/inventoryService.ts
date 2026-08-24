@@ -1,17 +1,7 @@
-import type { InventoryItem, InventoryItemType } from '@/types/entities/inventory'
+import type { InventoryItem, InventoryItemType, StockMovement } from '@/types/entities/inventory'
 import type { PaginatedResponse, QueryParams } from '@/services/base/types'
-import { mockClient, paginateFilterSort, findOrThrow, insertMock, updateMock } from '@/services/base/mockClient'
-import { inventoryItems } from '@/mocks/seed/inventory.seed'
-import { getMovementsForItem } from '@/mocks/seed/stockMovements.seed'
-import { getTrendForItem } from '@/mocks/seed/inventoryTrends.seed'
-import { makeIdFactory } from '@/mocks/generators/idGenerator'
+import { paginateFilterSort } from '@/services/base/paginate'
 import { apiClient } from '@/shared/lib/apiClient'
-import { ApiError } from '@/services/base/types'
-
-const nextId = makeIdFactory('inv-new')
-
-/** Flip to "false" once the Spring Boot backend (backend/) is running — see AuthContext.tsx. */
-const USE_MOCK_BACKEND = import.meta.env.VITE_USE_MOCK_BACKEND !== 'false'
 
 export interface GetInventoryParams extends QueryParams {
   itemType?: InventoryItemType
@@ -76,40 +66,7 @@ export function fromBackendInventoryItem(item: BackendInventoryItem): InventoryI
   }
 }
 
-const mockInventoryService = {
-  getInventoryItems: (params: GetInventoryParams = {}): Promise<PaginatedResponse<InventoryItem>> =>
-    mockClient.request(() =>
-      paginateFilterSort(inventoryItems, {
-        ...params,
-        searchKeys: ['itemName', 'category'],
-        filter: (item) =>
-          (params.itemType ? item.itemType === params.itemType : true) &&
-          (params.warehouseId ? item.warehouseId === params.warehouseId : true) &&
-          (params.lowStockOnly ? item.quantityOnHand <= item.reorderPoint : true),
-      }),
-    ),
-
-  getInventoryItemById: (id: string): Promise<InventoryItem> => mockClient.request(() => findOrThrow(inventoryItems, id)),
-
-  getMovements: (inventoryItemId: string) => mockClient.request(() => getMovementsForItem(inventoryItemId)),
-
-  getTrend: (inventoryItemId: string) => mockClient.request(() => getTrendForItem(inventoryItemId)),
-
-  createInventoryItem: (input: InventoryItemInput): Promise<InventoryItem> =>
-    mockClient.request(() => {
-      const exists = inventoryItems.some(
-        (i) => i.itemType === input.itemType && i.itemId === input.itemId && i.warehouseId === input.warehouseId,
-      )
-      if (exists) throw new ApiError(400, 'This item is already tracked in the selected warehouse — use adjust stock instead.')
-      const item: InventoryItem = { id: nextId(), lastRestockedAt: new Date().toISOString(), ...input }
-      return insertMock(inventoryItems, item)
-    }),
-
-  adjustInventoryItem: (id: string, input: InventoryAdjustInput): Promise<InventoryItem> =>
-    mockClient.request(() => updateMock(inventoryItems, id, { ...input, lastRestockedAt: new Date().toISOString() })),
-}
-
-const httpInventoryService = {
+export const inventoryService = {
   getInventoryItems: async (params: GetInventoryParams = {}): Promise<PaginatedResponse<InventoryItem>> => {
     const all = (
       await apiClient.get<BackendInventoryItem[]>('/inventory', { params: { warehouseId: params.warehouseId } })
@@ -126,11 +83,11 @@ const httpInventoryService = {
   getInventoryItemById: (id: string): Promise<InventoryItem> =>
     apiClient.get<BackendInventoryItem>(`/inventory/${id}`).then(fromBackendInventoryItem),
 
-  // Stock movement history and trend charts aren't modeled on the backend yet — fall back to
-  // the mock seed's generated history rather than pretending real data exists.
-  getMovements: (inventoryItemId: string) => mockClient.request(() => getMovementsForItem(inventoryItemId)),
+  // Stock movement history and trend charts aren't modeled on the backend yet — report no history
+  // rather than fabricating one. Revisit once the backend logs per-transaction movements.
+  getMovements: async (_inventoryItemId: string): Promise<StockMovement[]> => [],
 
-  getTrend: (inventoryItemId: string) => mockClient.request(() => getTrendForItem(inventoryItemId)),
+  getTrend: async (_inventoryItemId: string): Promise<undefined> => undefined,
 
   createInventoryItem: (input: InventoryItemInput): Promise<InventoryItem> =>
     apiClient.post<BackendInventoryItem>('/inventory', input).then(fromBackendInventoryItem),
@@ -138,5 +95,3 @@ const httpInventoryService = {
   adjustInventoryItem: (id: string, input: InventoryAdjustInput): Promise<InventoryItem> =>
     apiClient.put<BackendInventoryItem>(`/inventory/${id}`, input).then(fromBackendInventoryItem),
 }
-
-export const inventoryService = USE_MOCK_BACKEND ? mockInventoryService : httpInventoryService

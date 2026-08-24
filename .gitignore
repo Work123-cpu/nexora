@@ -15,6 +15,9 @@ desktop/dist/
 .env.local
 !.env.example
 
+# Local DB dumps — contain real user data (password hashes, API keys)
+backend/db-backups/
+
 # Bundled third-party tooling (downloaded, not project source)
 .tools/
 

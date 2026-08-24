@@ -1,0 +1,3 @@
+name,category,description,unitOfMeasure,unitPrice,unitCost,status
+Example Product A,General,Short description of the product,unit,100,60,active
+Example Product B,General,Short description of the product,unit,250,150,active

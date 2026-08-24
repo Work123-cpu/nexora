@@ -1,16 +1,8 @@
 import type { Warehouse, WarehouseType } from '@/types/entities/warehouse'
 import type { PaginatedResponse, QueryParams } from '@/services/base/types'
-import { mockClient, paginateFilterSort, findOrThrow, insertMock, updateMock, removeMock } from '@/services/base/mockClient'
-import { warehouses } from '@/mocks/seed/warehouses.seed'
-import { inventoryItems } from '@/mocks/seed/inventory.seed'
-import { makeIdFactory } from '@/mocks/generators/idGenerator'
+import { paginateFilterSort } from '@/services/base/paginate'
 import { apiClient } from '@/shared/lib/apiClient'
 import { fromBackendInventoryItem, type BackendInventoryItem } from '@/features/inventory/services/inventoryService'
-
-const nextId = makeIdFactory('wh-new')
-
-/** Flip to "false" once the Spring Boot backend (backend/) is running — see AuthContext.tsx. */
-const USE_MOCK_BACKEND = import.meta.env.VITE_USE_MOCK_BACKEND !== 'false'
 
 export interface WarehouseInput {
   name: string
@@ -55,28 +47,7 @@ function fromBackend(w: BackendWarehouse): Warehouse {
   }
 }
 
-const mockWarehouseService = {
-  getWarehouses: (params: QueryParams = {}): Promise<PaginatedResponse<Warehouse>> =>
-    mockClient.request(() => paginateFilterSort(warehouses, { ...params, searchKeys: ['name', 'code', 'city'] })),
-
-  getWarehouseById: (id: string): Promise<Warehouse> => mockClient.request(() => findOrThrow(warehouses, id)),
-
-  getInventoryForWarehouse: (warehouseId: string) =>
-    mockClient.request(() => inventoryItems.filter((item) => item.warehouseId === warehouseId)),
-
-  createWarehouse: (input: WarehouseInput): Promise<Warehouse> =>
-    mockClient.request(() => {
-      const warehouse: Warehouse = { id: nextId(), ...input }
-      return insertMock(warehouses, warehouse)
-    }),
-
-  updateWarehouse: (id: string, input: Partial<WarehouseInput>): Promise<Warehouse> =>
-    mockClient.request(() => updateMock<Warehouse>(warehouses, id, input)),
-
-  deleteWarehouse: (id: string): Promise<void> => mockClient.request(() => removeMock(warehouses, id)),
-}
-
-const httpWarehouseService = {
+export const warehouseService = {
   getWarehouses: async (params: QueryParams = {}): Promise<PaginatedResponse<Warehouse>> => {
     const all = (await apiClient.get<BackendWarehouse[]>('/warehouses')).map(fromBackend)
     return paginateFilterSort(all, { ...params, searchKeys: ['name', 'code', 'city'] })
@@ -94,5 +65,3 @@ const httpWarehouseService = {
 
   deleteWarehouse: (id: string): Promise<void> => apiClient.delete(`/warehouses/${id}`),
 }
-
-export const warehouseService = USE_MOCK_BACKEND ? mockWarehouseService : httpWarehouseService

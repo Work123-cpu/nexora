@@ -17,8 +17,8 @@ import { useCreateBill } from '../hooks/useBills'
 
 interface DraftLine {
   productId: string
-  quantity: number
-  unitPrice: number
+  quantity: number | ''
+  unitPrice: number | ''
 }
 
 export function BillCreatePage() {
@@ -38,8 +38,8 @@ export function BillCreatePage() {
   const [customerName, setCustomerName] = useState('')
   const [customerEmail, setCustomerEmail] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
-  const [taxPct, setTaxPct] = useState(0)
-  const [discountPct, setDiscountPct] = useState(0)
+  const [taxPct, setTaxPct] = useState<number | ''>('')
+  const [discountPct, setDiscountPct] = useState<number | ''>('')
   const [lines, setLines] = useState<DraftLine[]>([])
   const [error, setError] = useState<string | null>(null)
 
@@ -73,10 +73,12 @@ export function BillCreatePage() {
   }
   const removeLine = (index: number) => setLines((prev) => prev.filter((_, i) => i !== index))
 
-  const lineTotals = useMemo(() => lines.map((l) => l.quantity * l.unitPrice), [lines])
+  const taxPctValue = taxPct === '' ? 0 : taxPct
+  const discountPctValue = discountPct === '' ? 0 : discountPct
+  const lineTotals = useMemo(() => lines.map((l) => (l.quantity === '' ? 0 : l.quantity) * (l.unitPrice === '' ? 0 : l.unitPrice)), [lines])
   const subtotal = lineTotals.reduce((sum, v) => sum + v, 0)
-  const discountAmount = (subtotal * discountPct) / 100
-  const taxAmount = ((subtotal - discountAmount) * taxPct) / 100
+  const discountAmount = (subtotal * discountPctValue) / 100
+  const taxAmount = ((subtotal - discountAmount) * taxPctValue) / 100
   const total = subtotal - discountAmount + taxAmount
 
   const handleSubmit = async (e: FormEvent) => {
@@ -96,9 +98,13 @@ export function BillCreatePage() {
         customerName,
         customerEmail: customerEmail || undefined,
         customerPhone: customerPhone || undefined,
-        items: lines.map((l) => ({ productId: l.productId, quantity: l.quantity, unitPrice: l.unitPrice })),
-        taxPct,
-        discountPct,
+        items: lines.map((l) => ({
+          productId: l.productId,
+          quantity: l.quantity === '' ? 0 : l.quantity,
+          unitPrice: l.unitPrice === '' ? 0 : l.unitPrice,
+        })),
+        taxPct: taxPctValue,
+        discountPct: discountPctValue,
         createdBy: session?.user.name ?? 'Unknown user',
       })
       toast({ title: 'Bill completed', description: `${bill.billNumber} saved — stock updated.`, tone: 'success' })
@@ -137,30 +143,39 @@ export function BillCreatePage() {
             <div className="space-y-3">
               {lines.map((line, index) => {
                 const stock = getStock(line.productId)
-                const insufficient = stock !== undefined && stock.quantityOnHand < line.quantity
+                const quantityValue = line.quantity === '' ? 0 : line.quantity
+                const insufficient = stock !== undefined && stock.quantityOnHand < quantityValue
                 return (
                   <div key={index}>
                     <div className="grid grid-cols-1 gap-2 rounded-xl border border-border p-3 sm:grid-cols-[2fr_1fr_1fr_1fr_auto]">
-                      <Select options={productOptions} value={line.productId} onChange={(e) => handleProductChange(index, e.target.value)} />
+                      <Select label="Product" options={productOptions} value={line.productId} onChange={(e) => handleProductChange(index, e.target.value)} />
                       <Input
+                        label="Quantity"
                         type="number"
                         min={1}
                         step="1"
+                        placeholder="e.g. 10"
                         value={line.quantity}
-                        onChange={(e) => updateLine(index, { quantity: Number(e.target.value) })}
-                        placeholder="Qty"
+                        onChange={(e) => updateLine(index, { quantity: e.target.value === '' ? '' : Number(e.target.value) })}
                       />
                       <Input
+                        label="Unit Price (₹)"
                         type="number"
                         step="0.01"
+                        placeholder="e.g. 50"
                         value={line.unitPrice}
-                        onChange={(e) => updateLine(index, { unitPrice: Number(e.target.value) })}
-                        placeholder="Unit price"
+                        onChange={(e) => updateLine(index, { unitPrice: e.target.value === '' ? '' : Number(e.target.value) })}
                       />
-                      <div className="flex items-center px-2 text-sm font-medium text-foreground">{formatCurrency(lineTotals[index] ?? 0, true)}</div>
-                      <Button type="button" variant="ghost" size="icon" onClick={() => removeLine(index)} aria-label="Remove product">
-                        <Trash2 className="size-4 text-danger" />
-                      </Button>
+                      <div className="space-y-1.5">
+                        <p className="text-sm font-medium text-foreground">Line Total</p>
+                        <div className="flex h-10 items-center px-2 text-sm font-medium text-foreground">{formatCurrency(lineTotals[index] ?? 0, true)}</div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <p className="text-sm font-medium text-transparent select-none" aria-hidden="true">.</p>
+                        <Button type="button" variant="ghost" size="icon" onClick={() => removeLine(index)} aria-label="Remove product">
+                          <Trash2 className="size-4 text-danger" />
+                        </Button>
+                      </div>
                     </div>
                     <p className={`mt-1 text-xs ${insufficient ? 'text-danger' : 'text-muted-foreground'}`}>
                       {stock ? `${stock.quantityOnHand} ${stock.unit} in stock` : 'No inventory tracked for this product'}
@@ -175,8 +190,24 @@ export function BillCreatePage() {
             </Button>
 
             <div className="mt-5 grid gap-4 border-t border-border pt-5 sm:grid-cols-2">
-              <Input label="Tax (%)" type="number" step="0.1" min={0} value={taxPct} onChange={(e) => setTaxPct(Number(e.target.value))} />
-              <Input label="Discount (%)" type="number" step="0.1" min={0} value={discountPct} onChange={(e) => setDiscountPct(Number(e.target.value))} />
+              <Input
+                label="Tax (%)"
+                type="number"
+                step="0.1"
+                min={0}
+                placeholder="e.g. 5"
+                value={taxPct}
+                onChange={(e) => setTaxPct(e.target.value === '' ? '' : Number(e.target.value))}
+              />
+              <Input
+                label="Discount (%)"
+                type="number"
+                step="0.1"
+                min={0}
+                placeholder="e.g. 10"
+                value={discountPct}
+                onChange={(e) => setDiscountPct(e.target.value === '' ? '' : Number(e.target.value))}
+              />
             </div>
 
             <div className="mt-5 space-y-1.5 border-t border-border pt-5 text-sm">

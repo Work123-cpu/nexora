@@ -14,6 +14,12 @@ class ForecastRequest(BaseModel):
     avgDailyUsage: float = Field(..., gt=0)
     granularity: Granularity = "day"
     horizon: int = Field(7, gt=0, le=52)
+    # Trailing daily units-sold for this exact product, chronological, most-recent-last, real
+    # zeros allowed for no-sales days. Computed client-side from real bill history — see
+    # frontend/src/features/reports/lib/computeSalesHistory.ts. None (or too short) means this
+    # product doesn't have enough real history yet, and the forecast honestly falls back to a
+    # category-level estimate (see ForecastResponse.isSynthetic).
+    recentSalesHistory: list[float] | None = None
 
 
 class ForecastPoint(BaseModel):

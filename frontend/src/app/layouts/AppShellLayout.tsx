@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { Navigate, Outlet } from 'react-router-dom'
 import { Sidebar } from '@/shared/ui/layout/Sidebar'
 import { Topbar } from '@/shared/ui/layout/Topbar'
@@ -8,8 +8,9 @@ import { ErrorBoundary } from '@/shared/ui/ErrorBoundary'
 import { CommandPalette } from '@/shared/ui/CommandPalette'
 import { useAuth } from '@/features/auth/context/AuthContext'
 import { useLocalStorage } from '@/shared/hooks/useLocalStorage'
-import { ChatLauncher } from '@/features/ai-chatbot/components/ChatLauncher'
 import { useNotifications } from '@/features/notifications/hooks/useNotifications'
+
+const ChatLauncher = lazy(() => import('@/features/ai-chatbot/components/ChatLauncher').then((m) => ({ default: m.ChatLauncher })))
 
 export function AppShellLayout() {
   const { isAuthenticated } = useAuth()
@@ -58,7 +59,9 @@ export function AppShellLayout() {
           </ContentContainer>
         </main>
       </div>
-      <ChatLauncher />
+      <Suspense fallback={null}>
+        <ChatLauncher />
+      </Suspense>
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </div>
   )

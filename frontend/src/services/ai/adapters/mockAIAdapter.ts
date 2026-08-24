@@ -1,5 +1,7 @@
 import type { IAIService } from '../AIServiceInterface'
 import type {
+  BomSuggestRequest,
+  BomSuggestResponse,
   ChatRequest,
   ChatResponse,
   ExplainRequest,
@@ -112,6 +114,25 @@ export const mockAIAdapter: IAIService = {
     return {
       answer: pickHelpAnswer(req.section, req.question),
       relatedArticles: ['Getting Started with Nexora', 'Understanding Reorder Points', 'How AI Recommendations Work'],
+    }
+  },
+
+  async suggestBom(req: BomSuggestRequest): Promise<BomSuggestResponse> {
+    await delay(600)
+
+    const needle = `${req.productName} ${req.productCategory ?? ''}`.toLowerCase()
+    const matched = req.availableRawMaterials.filter(
+      (m) => needle.includes(m.category.toLowerCase()) || needle.includes(m.name.toLowerCase()) || m.category.toLowerCase() === (req.productCategory ?? '').toLowerCase(),
+    )
+    const pool = (matched.length > 0 ? matched : req.availableRawMaterials).slice(0, 4)
+
+    return {
+      materials: pool.map((m) => ({
+        rawMaterialId: m.id,
+        quantityPerUnit: Number((1 + Math.random() * 3).toFixed(2)),
+        scrapPct: Number((2 + Math.random() * 6).toFixed(1)),
+      })),
+      notes: 'Mock suggestion — connect a real GROQ_API_KEY for live AI-drafted recipes.',
     }
   },
 }

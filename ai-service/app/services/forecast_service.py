@@ -4,6 +4,7 @@ from datetime import datetime as dt
 from app.core.errors import ForecastModelUnavailableError
 from app.ml import model_store
 from app.ml.constants import CATEGORIES
+from app.ml.features import MIN_HISTORY_WINDOW
 from app.ml.predict import DAYS_PER_PERIOD, aggregate, rollout_daily
 from app.schemas.forecast import ForecastRequest, ForecastResponse
 
@@ -24,7 +25,8 @@ class ForecastService:
         num_days = req.horizon * DAYS_PER_PERIOD[req.granularity]
         start_date = date.today() + timedelta(days=1)
 
-        daily = rollout_daily(trained, category, num_days, start_date)
+        used_real_history = req.recentSalesHistory is not None and len(req.recentSalesHistory) >= MIN_HISTORY_WINDOW
+        daily = rollout_daily(trained, category, num_days, start_date, real_history=req.recentSalesHistory)
 
         # Product-level scaling: the category model predicts at its own reference baseline volume;
         # scale by how this specific product's real avg daily usage compares to that baseline so
@@ -49,7 +51,7 @@ class ForecastService:
             validationMae=round(scaled_mae, 3),
             confidence=round(confidence, 3),
             generatedAt=dt.now(timezone.utc).isoformat(),
-            isSynthetic=True,
+            isSynthetic=not used_real_history,
         )
 
 

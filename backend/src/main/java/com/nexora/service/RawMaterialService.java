@@ -12,9 +12,11 @@ import java.util.List;
 public class RawMaterialService {
 
     private final RawMaterialRepository repository;
+    private final MaterialIntelligenceService materialIntelligenceService;
 
-    public RawMaterialService(RawMaterialRepository repository) {
+    public RawMaterialService(RawMaterialRepository repository, MaterialIntelligenceService materialIntelligenceService) {
         this.repository = repository;
+        this.materialIntelligenceService = materialIntelligenceService;
     }
 
     public List<RawMaterial> list(String companyId) {
@@ -34,7 +36,11 @@ public class RawMaterialService {
         RawMaterial material = new RawMaterial();
         material.setCompanyId(companyId);
         apply(material, input);
-        return repository.save(material);
+        RawMaterial saved = repository.save(material);
+        // Fire-and-forget — classification happens in the background so this create request
+        // (including each row of a CSV bulk import) isn't slowed down by a Groq round-trip.
+        materialIntelligenceService.classifyAsync(saved);
+        return saved;
     }
 
     public RawMaterial update(String companyId, String id, RawMaterialInput input) {

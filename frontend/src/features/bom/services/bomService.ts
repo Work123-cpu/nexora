@@ -1,15 +1,8 @@
 import type { BillOfMaterials, BOMLineItem } from '@/types/entities/bom'
 import type { PaginatedResponse, QueryParams } from '@/services/base/types'
-import { mockClient, paginateFilterSort, findOrThrow, insertMock, updateMock, removeMock } from '@/services/base/mockClient'
-import { billsOfMaterials } from '@/mocks/seed/bom.seed'
-import { getProductById, products } from '@/mocks/seed/products.seed'
-import { makeIdFactory } from '@/mocks/generators/idGenerator'
+import { paginateFilterSort } from '@/services/base/paginate'
 import { apiClient } from '@/shared/lib/apiClient'
-
-const nextId = makeIdFactory('bom-new')
-
-/** Flip to "false" once the Spring Boot backend (backend/) is running — see AuthContext.tsx. */
-const USE_MOCK_BACKEND = import.meta.env.VITE_USE_MOCK_BACKEND !== 'false'
+import { productService } from '@/features/products/services/productService'
 
 export interface BomInput {
   productId: string
@@ -48,42 +41,32 @@ function fromBackend(bom: BackendBom): BillOfMaterials {
   }
 }
 
-function withProductName(bom: BillOfMaterials): BomWithProductName {
-  return { ...bom, productName: getProductById(bom.productId)?.name ?? 'Unknown product' }
+function withProductName(bom: BillOfMaterials, nameById: Map<string, string>): BomWithProductName {
+  return { ...bom, productName: nameById.get(bom.productId) ?? 'Unknown product' }
 }
 
-const mockBomService = {
-  getBOMs: (params: QueryParams = {}): Promise<PaginatedResponse<BomWithProductName>> =>
-    mockClient.request(() => {
-      const enriched = billsOfMaterials.map(withProductName)
-      return paginateFilterSort(enriched, { ...params, searchKeys: ['productName', 'version'] })
-    }),
-
-  getBOMById: (id: string): Promise<BomWithProductName> =>
-    mockClient.request(() => withProductName(findOrThrow(billsOfMaterials, id))),
-
-  createBOM: (input: BomInput): Promise<BillOfMaterials> =>
-    mockClient.request(() => {
-      const bom: BillOfMaterials = { id: nextId(), updatedAt: new Date().toISOString(), ...input }
-      const product = products.find((p) => p.id === input.productId)
-      if (product) product.hasBOM = true
-      return insertMock(billsOfMaterials, bom)
-    }),
-
-  updateBOM: (id: string, input: Partial<BomInput>): Promise<BillOfMaterials> =>
-    mockClient.request(() => updateMock(billsOfMaterials, id, { ...input, updatedAt: new Date().toISOString() })),
-
-  deleteBOM: (id: string): Promise<void> => mockClient.request(() => removeMock(billsOfMaterials, id)),
+function buildProductNameMap(items: { id: string; name: string }[]): Map<string, string> {
+  return new Map(items.map((p) => [p.id, p.name]))
 }
 
-const httpBomService = {
+export const bomService = {
   getBOMs: async (params: QueryParams = {}): Promise<PaginatedResponse<BomWithProductName>> => {
-    const enriched = (await apiClient.get<BackendBom[]>('/bom')).map(fromBackend).map(withProductName)
+    const [boms, productsResult] = await Promise.all([
+      apiClient.get<BackendBom[]>('/bom').then((list) => list.map(fromBackend)),
+      productService.getProducts({ pageSize: 10000 }),
+    ])
+    const nameById = buildProductNameMap(productsResult.items)
+    const enriched = boms.map((b) => withProductName(b, nameById))
     return paginateFilterSort(enriched, { ...params, searchKeys: ['productName', 'version'] })
   },
 
-  getBOMById: (id: string): Promise<BomWithProductName> =>
-    apiClient.get<BackendBom>(`/bom/${id}`).then(fromBackend).then(withProductName),
+  getBOMById: async (id: string): Promise<BomWithProductName> => {
+    const [bom, productsResult] = await Promise.all([
+      apiClient.get<BackendBom>(`/bom/${id}`).then(fromBackend),
+      productService.getProducts({ pageSize: 10000 }),
+    ])
+    return withProductName(bom, buildProductNameMap(productsResult.items))
+  },
 
   createBOM: (input: BomInput): Promise<BillOfMaterials> => apiClient.post<BackendBom>('/bom', input).then(fromBackend),
 
@@ -92,5 +75,3 @@ const httpBomService = {
 
   deleteBOM: (id: string): Promise<void> => apiClient.delete(`/bom/${id}`),
 }
-
-export const bomService = USE_MOCK_BACKEND ? mockBomService : httpBomService

@@ -1,95 +1,70 @@
-import { Link } from 'react-router-dom'
-import { Globe2, KeyRound, Radio } from 'lucide-react'
+import { Boxes, RefreshCw, Radio, Sparkles, TrendingUp } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/layout/PageHeader'
 import { StatCard } from '@/shared/ui/StatCard'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { Button } from '@/shared/ui/Button'
-import { useRawMaterials } from '@/features/raw-materials/hooks/useRawMaterials'
-import { getCompanyConfig } from '@/shared/lib/companyConfig'
-import { useLiveExchangeRates } from '../hooks/useLiveExchangeRates'
-import { useLiveCommodities } from '../hooks/useLiveCommodities'
-import { LiveIndicatorCard } from '../components/LiveIndicatorCard'
+import { useToast } from '@/shared/ui/Toast'
+import { useMaterialIntelligence, useRefreshMaterialIntelligence } from '../hooks/useMaterialIntelligence'
+import { MaterialIntelligenceCard } from '../components/MaterialIntelligenceCard'
 
 export function MarketIntelligencePage() {
-  const { data: materialsData } = useRawMaterials({ pageSize: 10000 })
-  const materialNames = materialsData?.items.map((m) => m.name) ?? []
-  const { alphaVantageApiKey } = getCompanyConfig()
+  const { toast } = useToast()
+  const { data: materials, isLoading } = useMaterialIntelligence()
+  const refresh = useRefreshMaterialIntelligence()
 
-  const { data: liveRates } = useLiveExchangeRates()
-  const { data: liveCommodities, isLoading: commoditiesLoading } = useLiveCommodities(materialNames, alphaVantageApiKey)
+  const handleRefresh = () => {
+    refresh.mutate(undefined, {
+      onSuccess: () => toast({ title: 'Market intelligence refreshed', description: 'Re-checked every material against its price source.', tone: 'success' }),
+      onError: () => toast({ title: 'Could not refresh', description: 'Please try again in a moment.', tone: 'error' }),
+    })
+  }
 
-  const totalTracked = (liveRates ? Object.keys(liveRates).length : 0) + (liveCommodities?.length ?? 0)
+  const realPriceCount = materials?.filter((m) => m.dataMode === 'real_price').length ?? 0
+  const estimateCount = materials?.filter((m) => m.isEstimate).length ?? 0
+  const risingCount = materials?.filter((m) => m.trend === 'rising').length ?? 0
 
   return (
     <div>
       <PageHeader
         title="Market Intelligence"
-        description="Live currency rates and commodity prices — matched to your own raw materials, not a fixed industry template."
+        description="Price intelligence for your own raw materials — automatically classified and sourced from Indian market data where it's available, honest AI estimates where it isn't."
+        actions={
+          <Button variant="outline" leftIcon={<RefreshCw className="size-4" />} onClick={handleRefresh} isLoading={refresh.isPending}>
+            Refresh
+          </Button>
+        }
       />
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <StatCard label="Live Indicators Tracked" value={String(totalTracked)} icon={<Radio className="size-5" />} tone="primary" />
-        <StatCard label="Your Materials Matched" value={String(liveCommodities?.length ?? 0)} icon={<Globe2 className="size-5" />} tone="info" />
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatCard label="Materials Tracked" value={String(materials?.length ?? 0)} icon={<Boxes className="size-5" />} tone="primary" />
+        <StatCard label="Real Price Data" value={String(realPriceCount)} icon={<Radio className="size-5" />} tone="info" />
+        <StatCard label="Rising Today" value={String(risingCount)} icon={<TrendingUp className="size-5" />} tone="warning" />
       </div>
 
-      <div>
-        <h2 className="mb-3 text-sm font-semibold text-foreground">Currency</h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {liveRates &&
-            Object.entries(liveRates).map(([name, rate]) => (
-              <LiveIndicatorCard
-                key={name}
-                name={name}
-                value={rate.rate}
-                unit="rate"
-                changePct={rate.changePct}
-                history={rate.history}
-                asOf={rate.asOf}
-                affects="Any imports invoiced in this currency"
-              />
-            ))}
-        </div>
-      </div>
-
-      <div className="mt-8">
-        <h2 className="mb-3 text-sm font-semibold text-foreground">Commodities &amp; Fuel</h2>
-
-        {!alphaVantageApiKey.trim() ? (
-          <EmptyState
-            icon={<KeyRound className="size-5" />}
-            title="Add a free Alpha Vantage key to unlock this"
-            description="Matches real wheat, sugar, coffee, cotton, copper, aluminum, and energy prices against your own raw materials — no charge, no card required."
-            action={
-              <Link to="/app/account/settings">
-                <Button size="sm">Add key in Settings</Button>
-              </Link>
-            }
-          />
-        ) : commoditiesLoading ? (
-          <p className="text-sm text-muted-foreground">Checking live prices…</p>
-        ) : liveCommodities && liveCommodities.length > 0 ? (
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground">Loading market intelligence…</p>
+      ) : materials && materials.length > 0 ? (
+        <>
+          {estimateCount > 0 && (
+            <p className="mb-4 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Sparkles className="size-3.5 text-info" />
+              {estimateCount} of {materials.length} material{estimateCount === 1 ? '' : 's'} have no standardized Indian
+              price feed — shown as an AI-reasoned estimate instead of a fabricated number.
+            </p>
+          )}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {liveCommodities.map((c) => (
-              <LiveIndicatorCard
-                key={c.def.function}
-                name={c.def.label}
-                value={c.value}
-                unit={c.def.unit}
-                changePct={c.changePct}
-                history={c.history}
-                asOf={c.asOf}
-                affects={`Affects: ${c.matchedMaterials.join(', ')}`}
-              />
+            {materials.map((material) => (
+              <MaterialIntelligenceCard key={material.rawMaterialId} material={material} />
             ))}
           </div>
-        ) : (
-          <EmptyState
-            icon={<Globe2 className="size-5" />}
-            title="No tracked commodity matches your raw materials yet"
-            description="We track energy (oil, natural gas), base metals (copper, aluminum), and major agricultural commodities (wheat, corn, cotton, sugar, coffee) — the only ones with a free real-time price feed. If none of your raw material names match, honestly, there's nothing real to show for them here rather than a fabricated number."
-          />
-        )}
-      </div>
+        </>
+      ) : (
+        <EmptyState
+          icon={<Boxes className="size-5" />}
+          title="No raw materials yet"
+          description="Add raw materials to your catalog and price intelligence will be tracked here automatically — no setup or selection needed."
+        />
+      )}
     </div>
   )
 }

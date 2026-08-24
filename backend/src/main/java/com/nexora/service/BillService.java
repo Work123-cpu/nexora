@@ -61,6 +61,9 @@ public class BillService {
         bill.setCustomerPhone(input.customerPhone());
         bill.setCreatedBy(input.createdBy());
         bill.setStatus("completed");
+        if (input.createdAt() != null) {
+            bill.setCreatedAt(input.createdAt());
+        }
 
         List<BillLineItem> lineItems = new ArrayList<>();
         double subtotal = 0;

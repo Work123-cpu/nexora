@@ -16,9 +16,6 @@ export function clearJustRegistered(): void {
   if (typeof window !== 'undefined') window.sessionStorage.removeItem(JUST_REGISTERED_KEY)
 }
 
-/** Flip to "false" once the Spring Boot backend (backend/) is running to authenticate for real. */
-const USE_MOCK_BACKEND = import.meta.env.VITE_USE_MOCK_BACKEND !== 'false'
-
 interface BackendAuthResponse {
   token: string
   userId: string
@@ -44,22 +41,6 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-function buildMockSession(email: string, name?: string, companyName?: string): AuthSession {
-  const derivedName = name || email.split('@')[0]!.replace(/[._]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-  return {
-    role: 'admin',
-    user: {
-      id: 'user-0001',
-      name: derivedName || 'Aditya Kapoor',
-      email,
-      role: 'admin',
-      jobTitle: 'Procurement Director',
-      companyName: companyName || 'Annapurna Foods & Beverages Pvt. Ltd.',
-      createdAt: new Date().toISOString(),
-    },
-  }
-}
-
 function readStoredSession(): AuthSession | null {
   if (typeof window === 'undefined') return null
   try {
@@ -74,14 +55,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<AuthSession | null>(() => readStoredSession())
 
   const login = useCallback(async (email: string, password: string) => {
-    if (USE_MOCK_BACKEND) {
-      await new Promise((resolve) => setTimeout(resolve, 600))
-      const next = buildMockSession(email)
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-      setSession(next)
-      return
-    }
-
     const res = await apiClient.post<BackendAuthResponse>('/auth/login', { email, password })
     setAuthToken(res.token)
     const role = res.role.toLowerCase() as Role
@@ -102,15 +75,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const register = useCallback(async (companyName: string, name: string, email: string, password: string) => {
-    if (USE_MOCK_BACKEND) {
-      await new Promise((resolve) => setTimeout(resolve, 600))
-      const next = buildMockSession(email, name, companyName)
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-      window.sessionStorage.setItem(JUST_REGISTERED_KEY, '1')
-      setSession(next)
-      return
-    }
-
     const res = await apiClient.post<BackendAuthResponse>('/auth/register', { companyName, name, email, password })
     setAuthToken(res.token)
     const role = res.role.toLowerCase() as Role
@@ -141,7 +105,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // stale session so ProtectedRoute/AppShellLayout redirect to /login instead of the
   // app silently failing on every subsequent call.
   useEffect(() => {
-    if (USE_MOCK_BACKEND) return
     const handleUnauthorized = () => logout()
     window.addEventListener(UNAUTHORIZED_EVENT, handleUnauthorized)
     return () => window.removeEventListener(UNAUTHORIZED_EVENT, handleUnauthorized)

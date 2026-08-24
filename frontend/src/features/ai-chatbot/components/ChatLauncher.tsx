@@ -35,7 +35,7 @@ export function ChatLauncher() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 24, scale: 0.95 }}
             transition={{ type: 'spring', duration: 0.4, bounce: 0.15 }}
-            className="fixed bottom-24 right-5 z-40 h-[560px] w-[380px] max-w-[calc(100vw-2.5rem)] overflow-hidden rounded-2xl border border-border bg-surface card-shadow-lg"
+            className="fixed bottom-24 right-5 z-40 h-[560px] max-h-[calc(100vh-7rem)] w-[380px] max-w-[calc(100vw-2.5rem)] overflow-hidden rounded-2xl border border-border bg-surface card-shadow-lg"
           >
             <ChatWindow onClose={() => setOpen(false)} />
           </motion.div>

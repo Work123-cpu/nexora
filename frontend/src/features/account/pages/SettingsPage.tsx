@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { AlertTriangle, Bot, Building2, Globe, LogOut, Moon, Palette, Radio, RefreshCw, Sun, Monitor, Upload } from 'lucide-react'
+import { Bot, Building2, Globe, LogOut, Moon, Palette, Radio, RefreshCw, Sun, Monitor, Upload } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/layout/PageHeader'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/Card'
 import { Switch } from '@/shared/ui/Switch'
@@ -7,15 +7,14 @@ import { Select } from '@/shared/ui/Select'
 import { Input } from '@/shared/ui/Input'
 import { Button } from '@/shared/ui/Button'
 import { Avatar } from '@/shared/ui/Avatar'
-import { Dialog } from '@/shared/ui/Dialog'
 import { useToast } from '@/shared/ui/Toast'
 import { useTheme, type ThemeMode } from '@/theme/ThemeProvider'
 import { useAuth } from '@/features/auth/context/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import { cn } from '@/shared/lib/cn'
 import { CURRENCY_LOCALE_PRESETS, getCompanyConfig, setCompanyConfig } from '@/shared/lib/companyConfig'
-import { resetAllMockData } from '@/mocks/resetAllMockData'
 import { isDesktopApp, getDesktopBridge } from '@/shared/lib/electronBridge'
+import { apiClient } from '@/shared/lib/apiClient'
 import { AccountNav } from '../components/AccountNav'
 
 const THEME_OPTIONS: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
@@ -23,9 +22,6 @@ const THEME_OPTIONS: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
   { value: 'dark', label: 'Dark', icon: Moon },
   { value: 'system', label: 'System', icon: Monitor },
 ]
-
-/** Only meaningful against the mock data layer — clearing it does nothing to real MySQL data. */
-const USE_MOCK_BACKEND = import.meta.env.VITE_USE_MOCK_BACKEND !== 'false'
 
 const LANGUAGE_OPTIONS = [
   { label: 'English (US)', value: 'en-US' },
@@ -42,7 +38,6 @@ export function SettingsPage() {
   const [language, setLanguage] = useState('en-US')
   const [notifications, setNotifications] = useState({ email: true, push: true, weeklyDigest: false, criticalAlertsOnly: false })
   const [company, setCompany] = useState(() => getCompanyConfig())
-  const [confirmReset, setConfirmReset] = useState(false)
   const logoInputRef = useRef<HTMLInputElement>(null)
   const [groqKey, setGroqKey] = useState('')
   const [isSavingGroqKey, setIsSavingGroqKey] = useState(false)
@@ -57,8 +52,18 @@ export function SettingsPage() {
     reader.readAsDataURL(file)
   }
 
-  const handleSaveCompany = () => {
+  const handleSaveCompany = async () => {
     setCompanyConfig(company)
+    // Also push the Alpha Vantage key server-side (not a migration — Market Intelligence's live
+    // indicator cards keep reading the localStorage copy above, unchanged) so the backend's
+    // scheduled job can check for price moves and raise real notifications. Best-effort: a
+    // failure here shouldn't block the (already-succeeded) local save.
+    try {
+      await apiClient.put('/company/settings', { alphaVantageApiKey: company.alphaVantageApiKey, dataGovInApiKey: company.dataGovInApiKey })
+    } catch {
+      toast({ title: 'Saved locally, but could not sync to the server', description: 'Price-move notifications may use a stale key until this succeeds.', tone: 'warning' })
+      return
+    }
     toast({ title: 'Company profile saved', description: 'Currency and locale changes apply immediately across the app.', tone: 'success' })
   }
 
@@ -85,13 +90,6 @@ export function SettingsPage() {
     if (!bridge) return
     setIsRelaunching(true)
     await bridge.relaunch()
-  }
-
-  const handleReset = () => {
-    resetAllMockData()
-    setConfirmReset(false)
-    toast({ title: 'Blank slate ready', description: 'All demo business data has been cleared.', tone: 'success' })
-    navigate('/setup')
   }
 
   return (
@@ -180,12 +178,17 @@ export function SettingsPage() {
                 <Radio className="size-4" /> Market Intelligence
               </CardTitle>
               <CardDescription className="mt-1">
-                Powers live commodity &amp; fuel prices, matched against your own raw materials. Get a free key (no
-                card required) at{' '}
+                Powers Market Intelligence's automatic price tracking for your raw materials — metals &amp; energy via
+                Alpha Vantage (get a free key, no card required, at{' '}
                 <a href="https://www.alphavantage.co/support/#api-key" target="_blank" rel="noreferrer" className="text-primary hover:underline">
                   alphavantage.co
                 </a>
-                . Currency rates (USD/INR, EUR/INR) are already live with no key needed.
+                ), and Indian agricultural mandi prices via data.gov.in (get a free key at{' '}
+                <a href="https://data.gov.in/user/register" target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                  data.gov.in
+                </a>
+                ). Materials without a matching key or feed still show an honest AI-estimated trend instead of no
+                data at all.
               </CardDescription>
             </div>
           </CardHeader>
@@ -195,6 +198,14 @@ export function SettingsPage() {
               type="password"
               value={company.alphaVantageApiKey}
               onChange={(e) => setCompany({ ...company, alphaVantageApiKey: e.target.value })}
+              placeholder="Paste your free key here"
+              autoComplete="off"
+            />
+            <Input
+              label="data.gov.in API key (optional)"
+              type="password"
+              value={company.dataGovInApiKey}
+              onChange={(e) => setCompany({ ...company, dataGovInApiKey: e.target.value })}
               placeholder="Paste your free key here"
               autoComplete="off"
             />
@@ -337,27 +348,6 @@ export function SettingsPage() {
           </CardContent>
         </Card>
 
-        {USE_MOCK_BACKEND && (
-          <Card className="border-danger/30">
-            <CardHeader>
-              <div>
-                <CardTitle className="flex items-center gap-2 text-danger">
-                  <AlertTriangle className="size-4" /> Danger Zone
-                </CardTitle>
-                <CardDescription className="mt-1">
-                  Clear every product, raw material, BOM, warehouse, vendor, and purchase order — for starting fresh as a new company.
-                  This cannot be undone.
-                </CardDescription>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <Button variant="danger" onClick={() => setConfirmReset(true)}>
-                Reset to blank slate
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
         <Card className="border-danger/30">
           <CardHeader>
             <div>
@@ -379,28 +369,6 @@ export function SettingsPage() {
           </CardContent>
         </Card>
       </div>
-
-      <Dialog
-        open={confirmReset}
-        onClose={() => setConfirmReset(false)}
-        title="Reset to blank slate"
-        description="This action cannot be undone."
-        footer={
-          <>
-            <Button variant="outline" onClick={() => setConfirmReset(false)}>
-              Cancel
-            </Button>
-            <Button variant="danger" onClick={handleReset}>
-              Clear everything
-            </Button>
-          </>
-        }
-      >
-        <p className="text-sm text-muted-foreground">
-          This permanently clears all products, raw materials, bills of materials, warehouses, vendors, purchase orders, and
-          inventory from this browser, then takes you to the Setup Wizard to configure your own company from scratch.
-        </p>
-      </Dialog>
     </div>
   )
 }

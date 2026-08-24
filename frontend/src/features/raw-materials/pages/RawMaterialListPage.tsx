@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Boxes, Droplets, PackagePlus, PackageSearch, Snowflake, Upload } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/layout/PageHeader'
@@ -16,11 +16,10 @@ import { useDebounce } from '@/shared/hooks/useDebounce'
 import { usePagination } from '@/shared/hooks/usePagination'
 import { formatCurrency, formatNumber } from '@/shared/lib/formatters'
 import { useInventoryItems } from '@/features/inventory/hooks/useInventory'
-import { useVendors } from '@/features/vendors/hooks/useVendors'
+import { useVendors, useCreateVendor } from '@/features/vendors/hooks/useVendors'
 import type { RawMaterial } from '@/types/entities/rawMaterial'
 import { useCreateRawMaterial, useRawMaterials } from '../hooks/useRawMaterials'
-import type { RawMaterialInput } from '../services/rawMaterialService'
-import { mapRawMaterialCsvRow, RAW_MATERIAL_CSV_TEMPLATE } from '../lib/csvMapper'
+import { mapRawMaterialCsvRow, RAW_MATERIAL_CSV_TEMPLATE, type RawMaterialCsvInput } from '../lib/csvMapper'
 
 export function RawMaterialListPage() {
   const navigate = useNavigate()
@@ -28,11 +27,25 @@ export function RawMaterialListPage() {
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState<string | undefined>(undefined)
   const [importOpen, setImportOpen] = useState(false)
+  const [sortBy, setSortBy] = useState<string | undefined>('name')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const { page, pageSize, setPage } = usePagination(1, 10)
   const debouncedSearch = useDebounce(search)
   const createRawMaterial = useCreateRawMaterial()
+  const createVendor = useCreateVendor()
+  // Per-import-batch cache so 10 rows all naming "Local" create exactly one new vendor, not ten.
+  const vendorCache = useRef<Map<string, string>>(new Map())
+  const newVendorCount = useRef(0)
 
-  const { data, isLoading } = useRawMaterials({ page, pageSize, search: debouncedSearch, category, sortBy: 'name', sortDir: 'asc' })
+  const { data, isLoading } = useRawMaterials({ page, pageSize, search: debouncedSearch, category, sortBy, sortDir })
+
+  const handleSort = (key: string) => {
+    if (sortBy === key) setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
+    else {
+      setSortBy(key)
+      setSortDir('asc')
+    }
+  }
   // Stat cards summarize every material, not just the current page — a separate, unfiltered
   // fetch, since the paginated `data` above only has this page's 10 rows.
   const { data: allData } = useRawMaterials({ pageSize: 10000 })
@@ -40,6 +53,36 @@ export function RawMaterialListPage() {
   const { data: inventoryData } = useInventoryItems({ pageSize: 10000 })
   const { data: vendorsData } = useVendors({ pageSize: 10000 })
   const vendors = vendorsData?.items ?? []
+
+  const resolveOrCreateVendorId = async (vendorName: string): Promise<string> => {
+    const key = vendorName.toLowerCase()
+    const cached = vendorCache.current.get(key)
+    if (cached) return cached
+    const existing = vendors.find((v) => v.name.toLowerCase() === key)
+    if (existing) {
+      vendorCache.current.set(key, existing.id)
+      return existing.id
+    }
+    const created = await createVendor.mutateAsync({
+      name: vendorName,
+      category: 'General',
+      contactName: '',
+      email: '',
+      phone: '',
+      city: '',
+      country: '',
+      rating: 0,
+      onTimeDeliveryPct: 0,
+      qualityScorePct: 0,
+      leadTimeDays: 0,
+      activeContracts: 0,
+      materialsSupplied: [],
+      status: 'active',
+    })
+    vendorCache.current.set(key, created.id)
+    newVendorCount.current += 1
+    return created.id
+  }
   const getInventoryByItemId = (id: string) => inventoryData?.items.find((i) => i.itemId === id)
   const getVendorById = (id: string) => vendors.find((v) => v.id === id)
 
@@ -56,6 +99,7 @@ export function RawMaterialListPage() {
     {
       key: 'name',
       header: 'Material',
+      sortable: true,
       render: (rm) => (
         <div>
           <p className="font-medium text-foreground">{rm.name}</p>
@@ -63,10 +107,10 @@ export function RawMaterialListPage() {
         </div>
       ),
     },
-    { key: 'category', header: 'Category', render: (rm) => <Badge tone="neutral">{rm.category}</Badge> },
+    { key: 'category', header: 'Category', sortable: true, render: (rm) => <Badge tone="neutral">{rm.category}</Badge> },
     { key: 'unit', header: 'Unit', render: (rm) => rm.unit },
-    { key: 'unitCost', header: 'Unit Cost', render: (rm) => formatCurrency(rm.unitCost, true) },
-    { key: 'leadTimeDays', header: 'Lead Time', render: (rm) => `${rm.leadTimeDays} days` },
+    { key: 'unitCost', header: 'Unit Cost', sortable: true, render: (rm) => formatCurrency(rm.unitCost, true) },
+    { key: 'leadTimeDays', header: 'Lead Time', sortable: true, render: (rm) => `${rm.leadTimeDays} days` },
     { key: 'vendor', header: 'Primary Vendor', render: (rm) => getVendorById(rm.primaryVendorId)?.name ?? '—' },
     {
       key: 'stock',
@@ -104,7 +148,15 @@ export function RawMaterialListPage() {
         actions={
           <RoleGuard resource="raw-materials" action="create">
             <div className="flex items-center gap-2">
-              <Button variant="outline" leftIcon={<Upload className="size-4" />} onClick={() => setImportOpen(true)}>
+              <Button
+                variant="outline"
+                leftIcon={<Upload className="size-4" />}
+                onClick={() => {
+                  vendorCache.current.clear()
+                  newVendorCount.current = 0
+                  setImportOpen(true)
+                }}
+              >
                 Import CSV
               </Button>
               <Button leftIcon={<PackagePlus className="size-4" />} onClick={() => navigate('/app/raw-materials/new')}>
@@ -144,6 +196,9 @@ export function RawMaterialListPage() {
         isLoading={isLoading}
         rowKey={(rm) => rm.id}
         onRowClick={(rm) => navigate(`/app/raw-materials/${rm.id}`)}
+        sortBy={sortBy}
+        sortDir={sortDir}
+        onSortChange={handleSort}
         emptyTitle="No materials found"
         emptyDescription="Try a different search term or category filter."
       />
@@ -154,17 +209,23 @@ export function RawMaterialListPage() {
         </div>
       )}
 
-      <BulkImportDialog<RawMaterialInput>
+      <BulkImportDialog<RawMaterialCsvInput>
         open={importOpen}
         onClose={() => setImportOpen(false)}
         title="Bulk Import Raw Materials"
-        description="Upload a CSV to add many materials at once. Vendor names must match an existing vendor exactly."
+        description="Upload a CSV to add many materials at once. A vendor name that doesn't exist yet is created automatically — fill in its contact details afterward from the Vendors page."
         templateFilename={RAW_MATERIAL_CSV_TEMPLATE.filename}
         templateHeaders={RAW_MATERIAL_CSV_TEMPLATE.headers}
         templateExampleRow={RAW_MATERIAL_CSV_TEMPLATE.exampleRow(vendors)}
-        mapRow={(row) => mapRawMaterialCsvRow(row, vendors)}
-        onImportRow={(input) => createRawMaterial.mutateAsync(input)}
-        onImported={(count) => toast({ title: 'Import complete', description: `${count} raw material(s) added.`, tone: 'success' })}
+        mapRow={mapRawMaterialCsvRow}
+        onImportRow={async ({ vendorName, ...input }) => {
+          const primaryVendorId = await resolveOrCreateVendorId(vendorName)
+          return createRawMaterial.mutateAsync({ ...input, primaryVendorId })
+        }}
+        onImported={(count) => {
+          const vendorNote = newVendorCount.current > 0 ? ` (${newVendorCount.current} new vendor${newVendorCount.current === 1 ? '' : 's'} created automatically)` : ''
+          toast({ title: 'Import complete', description: `${count} raw material(s) added${vendorNote}.`, tone: 'success' })
+        }}
       />
     </div>
   )

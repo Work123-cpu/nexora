@@ -1,17 +1,24 @@
 import type { BillOfMaterials, BOMLineItem } from '@/types/entities/bom'
-import { getRawMaterialById } from '@/mocks/seed/rawMaterials.seed'
+import type { RawMaterial } from '@/types/entities/rawMaterial'
 
-export function calculateMaterialLineCost(line: BOMLineItem): number {
-  const material = getRawMaterialById(line.rawMaterialId)
+/** Takes the live raw materials list as a parameter rather than importing the mock seed
+ * directly — a raw material's id only exists in that seed when running against the mock
+ * backend. Against the real backend, ids come from the database and never match, so every
+ * line silently priced at ₹0. Callers already have the real list via useRawMaterials(). */
+export function calculateMaterialLineCost(line: BOMLineItem, rawMaterials: RawMaterial[]): number {
+  const material = rawMaterials.find((m) => m.id === line.rawMaterialId)
   if (!material) return 0
   const quantityWithScrap = line.quantityPerUnit * (1 + line.scrapPct / 100)
   return quantityWithScrap * material.unitCost
 }
 
-export function calculateMaterialsCost(materials: BOMLineItem[]): number {
-  return materials.reduce((sum, line) => sum + calculateMaterialLineCost(line), 0)
+export function calculateMaterialsCost(materials: BOMLineItem[], rawMaterials: RawMaterial[]): number {
+  return materials.reduce((sum, line) => sum + calculateMaterialLineCost(line, rawMaterials), 0)
 }
 
-export function calculateTotalUnitCost(bom: Pick<BillOfMaterials, 'materials' | 'laborCostPerUnit' | 'overheadCostPerUnit'>): number {
-  return calculateMaterialsCost(bom.materials) + bom.laborCostPerUnit + bom.overheadCostPerUnit
+export function calculateTotalUnitCost(
+  bom: Pick<BillOfMaterials, 'materials' | 'laborCostPerUnit' | 'overheadCostPerUnit'>,
+  rawMaterials: RawMaterial[],
+): number {
+  return calculateMaterialsCost(bom.materials, rawMaterials) + bom.laborCostPerUnit + bom.overheadCostPerUnit
 }

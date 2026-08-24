@@ -1,16 +1,8 @@
 import type { Vendor, VendorStatus } from '@/types/entities/vendor'
 import type { PaginatedResponse, QueryParams } from '@/services/base/types'
-import { mockClient, paginateFilterSort, findOrThrow, insertMock, updateMock, removeMock } from '@/services/base/mockClient'
-import { vendors } from '@/mocks/seed/vendors.seed'
-import { purchaseOrders } from '@/mocks/seed/purchaseOrders.seed'
-import { makeIdFactory } from '@/mocks/generators/idGenerator'
+import { paginateFilterSort } from '@/services/base/paginate'
 import { apiClient } from '@/shared/lib/apiClient'
 import { fromBackendPO, type BackendPurchaseOrder } from '@/features/procurement/services/purchaseOrderService'
-
-const nextId = makeIdFactory('vnd-new')
-
-/** Flip to "false" once the Spring Boot backend (backend/) is running — see AuthContext.tsx. */
-const USE_MOCK_BACKEND = import.meta.env.VITE_USE_MOCK_BACKEND !== 'false'
 
 export interface GetVendorsParams extends QueryParams {
   category?: string
@@ -74,37 +66,7 @@ function fromBackend(v: BackendVendor): Vendor {
   }
 }
 
-const mockVendorService = {
-  getVendors: (params: GetVendorsParams = {}): Promise<PaginatedResponse<Vendor>> =>
-    mockClient.request(() =>
-      paginateFilterSort(vendors, {
-        ...params,
-        searchKeys: ['name', 'category', 'city'],
-        filter: (v) => (params.category ? v.category === params.category : true) && (params.status ? v.status === params.status : true),
-      }),
-    ),
-
-  getVendorById: (id: string): Promise<Vendor> => mockClient.request(() => findOrThrow(vendors, id)),
-
-  getPurchaseOrdersForVendor: (vendorId: string) => mockClient.request(() => purchaseOrders.filter((po) => po.vendorId === vendorId)),
-
-  createVendor: (input: VendorInput): Promise<Vendor> =>
-    mockClient.request(() => {
-      const vendor: Vendor = {
-        id: nextId(),
-        createdAt: new Date().toISOString(),
-        ...input,
-      }
-      return insertMock(vendors, vendor)
-    }),
-
-  updateVendor: (id: string, input: Partial<VendorInput>): Promise<Vendor> =>
-    mockClient.request(() => updateMock<Vendor>(vendors, id, input)),
-
-  deleteVendor: (id: string): Promise<void> => mockClient.request(() => removeMock(vendors, id)),
-}
-
-const httpVendorService = {
+export const vendorService = {
   getVendors: async (params: GetVendorsParams = {}): Promise<PaginatedResponse<Vendor>> => {
     const all = (await apiClient.get<BackendVendor[]>('/vendors')).map(fromBackend)
     return paginateFilterSort(all, {
@@ -126,5 +88,3 @@ const httpVendorService = {
 
   deleteVendor: (id: string): Promise<void> => apiClient.delete(`/vendors/${id}`),
 }
-
-export const vendorService = USE_MOCK_BACKEND ? mockVendorService : httpVendorService

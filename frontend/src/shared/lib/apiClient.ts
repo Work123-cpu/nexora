@@ -43,6 +43,10 @@ function buildQuery(params?: RequestOptions['params']): string {
 /** Fired on any 401 so AuthContext can clear the stale session and bounce to /login. */
 export const UNAUTHORIZED_EVENT = 'nexora:unauthorized'
 
+function extractDetail(body: unknown): string | undefined {
+  return body && typeof body === 'object' && 'detail' in body ? String((body as { detail: unknown }).detail) : undefined
+}
+
 async function handle<T>(response: Response): Promise<T> {
   if (!response.ok) {
     let body: unknown
@@ -52,7 +56,9 @@ async function handle<T>(response: Response): Promise<T> {
       body = undefined
     }
     if (response.status === 401) window.dispatchEvent(new Event(UNAUTHORIZED_EVENT))
-    throw new HttpError(response.status, response.statusText, body)
+    // GlobalExceptionHandler (backend) sends the real error text in `detail` — fall back to the
+    // generic HTTP reason phrase only when a response has no such body (e.g. a network-level error).
+    throw new HttpError(response.status, extractDetail(body) ?? response.statusText, body)
   }
   if (response.status === 204) return undefined as T
   return (await response.json()) as T

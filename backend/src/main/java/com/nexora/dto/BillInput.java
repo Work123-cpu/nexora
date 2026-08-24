@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.PositiveOrZero;
 
+import java.time.Instant;
 import java.util.List;
 
 public record BillInput(
@@ -14,6 +15,9 @@ public record BillInput(
         @NotEmpty List<BillLineItemInput> items,
         @PositiveOrZero double taxPct,
         @PositiveOrZero double discountPct,
-        String createdBy
+        String createdBy,
+        /** Historical-import only — omitted (null) means "now". Normal bill creation never
+         * sends this, so day-to-day billing is unaffected. */
+        Instant createdAt
 ) {
 }

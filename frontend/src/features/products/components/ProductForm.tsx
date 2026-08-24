@@ -6,7 +6,7 @@ import { Select } from '@/shared/ui/Select'
 import { CategorySelect } from '@/shared/ui/CategorySelect'
 import { Textarea } from '@/shared/ui/Textarea'
 import { Button } from '@/shared/ui/Button'
-import { PRODUCT_CATEGORIES } from '@/mocks/seed/products.seed'
+import { PRODUCT_CATEGORIES } from '../constants'
 import type { ProductInput } from '../services/productService'
 import type { Product } from '@/types/entities/product'
 
@@ -17,6 +17,9 @@ const STATUS_OPTIONS = [
   { label: 'Discontinued', value: 'discontinued' },
 ]
 
+type NumericField = 'unitPrice' | 'unitCost'
+type FormState = Omit<ProductInput, NumericField> & Record<NumericField, number | ''>
+
 interface ProductFormProps {
   initialValue?: Product
   onSubmit: (input: ProductInput) => Promise<void>
@@ -25,30 +28,34 @@ interface ProductFormProps {
 }
 
 export function ProductForm({ initialValue, onSubmit, isSubmitting, submitLabel = 'Save product' }: ProductFormProps) {
-  const [form, setForm] = useState<ProductInput>({
+  const [form, setForm] = useState<FormState>({
     name: initialValue?.name ?? '',
-    category: initialValue?.category ?? PRODUCT_CATEGORIES[0] ?? 'Bakery',
+    category: initialValue?.category ?? '',
     description: initialValue?.description ?? '',
     unitOfMeasure: initialValue?.unitOfMeasure ?? 'unit',
-    unitPrice: initialValue?.unitPrice ?? 0,
-    unitCost: initialValue?.unitCost ?? 0,
+    unitPrice: initialValue?.unitPrice ?? '',
+    unitCost: initialValue?.unitCost ?? '',
     status: initialValue?.status ?? 'active',
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
+
+  const unitPrice = form.unitPrice === '' ? 0 : form.unitPrice
+  const unitCost = form.unitCost === '' ? 0 : form.unitCost
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     const nextErrors: Record<string, string> = {}
     if (!form.name.trim()) nextErrors.name = 'Product name is required.'
-    if (form.unitPrice <= 0) nextErrors.unitPrice = 'Unit price must be greater than zero.'
-    if (form.unitCost < 0) nextErrors.unitCost = 'Unit cost cannot be negative.'
+    if (!form.category.trim()) nextErrors.category = 'Category is required — type a new one to add it.'
+    if (unitPrice <= 0) nextErrors.unitPrice = 'Unit price must be greater than zero.'
+    if (unitCost < 0) nextErrors.unitCost = 'Unit cost cannot be negative.'
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
 
-    await onSubmit(form)
+    await onSubmit({ ...form, unitPrice, unitCost })
   }
 
-  const margin = form.unitPrice > 0 ? (((form.unitPrice - form.unitCost) / form.unitPrice) * 100).toFixed(1) : '0.0'
+  const margin = unitPrice > 0 ? (((unitPrice - unitCost) / unitPrice) * 100).toFixed(1) : '0.0'
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -67,6 +74,7 @@ export function ProductForm({ initialValue, onSubmit, isSubmitting, submitLabel 
               defaults={PRODUCT_CATEGORIES}
               value={form.category}
               onChange={(category) => setForm({ ...form, category })}
+              error={errors.category}
             />
             <Select
               label="Unit of measure"
@@ -85,16 +93,18 @@ export function ProductForm({ initialValue, onSubmit, isSubmitting, submitLabel 
               label="Unit price (₹)"
               type="number"
               step="0.01"
+              placeholder="e.g. 250"
               value={form.unitPrice}
-              onChange={(e) => setForm({ ...form, unitPrice: Number(e.target.value) })}
+              onChange={(e) => setForm({ ...form, unitPrice: e.target.value === '' ? '' : Number(e.target.value) })}
               error={errors.unitPrice}
             />
             <Input
               label="Unit cost (₹)"
               type="number"
               step="0.01"
+              placeholder="e.g. 150"
               value={form.unitCost}
-              onChange={(e) => setForm({ ...form, unitCost: Number(e.target.value) })}
+              onChange={(e) => setForm({ ...form, unitCost: e.target.value === '' ? '' : Number(e.target.value) })}
               error={errors.unitCost}
             />
             <div>

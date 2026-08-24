@@ -4,8 +4,6 @@ import { AppShellLayout } from '@/app/layouts/AppShellLayout'
 import { AuthLayout } from '@/app/layouts/AuthLayout'
 import { SetupWizardLayout } from '@/app/layouts/SetupWizardLayout'
 import { BlankLayout } from '@/app/layouts/BlankLayout'
-import { VendorPortalRoot } from '@/app/layouts/VendorPortalRoot'
-import { VendorPortalLayout } from '@/app/layouts/VendorPortalLayout'
 import { NotFoundPage } from './NotFoundPage'
 
 const LoginPage = lazy(() => import('@/features/auth/pages/LoginPage').then((m) => ({ default: m.LoginPage })))
@@ -16,7 +14,9 @@ const ResetPasswordPage = lazy(() => import('@/features/auth/pages/ResetPassword
 const CommandCenterPage = lazy(() => import('@/features/command-center/pages/CommandCenterPage').then((m) => ({ default: m.CommandCenterPage })))
 
 const ProductListPage = lazy(() => import('@/features/products/pages/ProductListPage').then((m) => ({ default: m.ProductListPage })))
-const ProductCreatePage = lazy(() => import('@/features/products/pages/ProductCreatePage').then((m) => ({ default: m.ProductCreatePage })))
+const ProductCreateWizardPage = lazy(() =>
+  import('@/features/products/pages/ProductCreateWizardPage').then((m) => ({ default: m.ProductCreateWizardPage })),
+)
 const ProductDetailPage = lazy(() => import('@/features/products/pages/ProductDetailPage').then((m) => ({ default: m.ProductDetailPage })))
 const ProductEditPage = lazy(() => import('@/features/products/pages/ProductEditPage').then((m) => ({ default: m.ProductEditPage })))
 
@@ -31,6 +31,7 @@ const BomEditPage = lazy(() => import('@/features/bom/pages/BomEditPage').then((
 
 const InventoryDashboardPage = lazy(() => import('@/features/inventory/pages/InventoryDashboardPage').then((m) => ({ default: m.InventoryDashboardPage })))
 const InventoryAddStockPage = lazy(() => import('@/features/inventory/pages/InventoryAddStockPage').then((m) => ({ default: m.InventoryAddStockPage })))
+const InventoryEditPage = lazy(() => import('@/features/inventory/pages/InventoryEditPage').then((m) => ({ default: m.InventoryEditPage })))
 const WarehouseListPage = lazy(() => import('@/features/warehouse/pages/WarehouseListPage').then((m) => ({ default: m.WarehouseListPage })))
 const WarehouseCreatePage = lazy(() => import('@/features/warehouse/pages/WarehouseCreatePage').then((m) => ({ default: m.WarehouseCreatePage })))
 const WarehouseDetailPage = lazy(() => import('@/features/warehouse/pages/WarehouseDetailPage').then((m) => ({ default: m.WarehouseDetailPage })))
@@ -67,10 +68,6 @@ const TeamMembersPage = lazy(() => import('@/features/team/pages/TeamMembersPage
 const SetupWizardPage = lazy(() => import('@/features/ai-setup-wizard/pages/SetupWizardPage').then((m) => ({ default: m.SetupWizardPage })))
 const WelcomeChoicePage = lazy(() => import('@/features/ai-setup-wizard/pages/WelcomeChoicePage').then((m) => ({ default: m.WelcomeChoicePage })))
 
-const VendorLoginPage = lazy(() => import('@/features/vendor-portal/pages/VendorLoginPage').then((m) => ({ default: m.VendorLoginPage })))
-const VendorOrdersListPage = lazy(() => import('@/features/vendor-portal/pages/VendorOrdersListPage').then((m) => ({ default: m.VendorOrdersListPage })))
-const VendorOrderDetailPage = lazy(() => import('@/features/vendor-portal/pages/VendorOrderDetailPage').then((m) => ({ default: m.VendorOrderDetailPage })))
-
 export const routes: RouteObject[] = [
   { path: '/', element: <Navigate to="/app" replace /> },
   {
@@ -88,7 +85,7 @@ export const routes: RouteObject[] = [
     children: [
       { index: true, element: <CommandCenterPage /> },
       { path: 'products', element: <ProductListPage /> },
-      { path: 'products/new', element: <ProductCreatePage /> },
+      { path: 'products/new', element: <ProductCreateWizardPage /> },
       { path: 'products/:id', element: <ProductDetailPage /> },
       { path: 'products/:id/edit', element: <ProductEditPage /> },
       { path: 'raw-materials', element: <RawMaterialListPage /> },
@@ -100,6 +97,7 @@ export const routes: RouteObject[] = [
       { path: 'bom/:id/edit', element: <BomEditPage /> },
       { path: 'inventory', element: <InventoryDashboardPage /> },
       { path: 'inventory/add-stock', element: <InventoryAddStockPage /> },
+      { path: 'inventory/:id/edit', element: <InventoryEditPage /> },
       { path: 'inventory/warehouses', element: <WarehouseListPage /> },
       { path: 'inventory/warehouses/new', element: <WarehouseCreatePage /> },
       { path: 'inventory/warehouses/:id', element: <WarehouseDetailPage /> },
@@ -136,20 +134,6 @@ export const routes: RouteObject[] = [
     path: '/welcome',
     element: <SetupWizardLayout />,
     children: [{ index: true, element: <WelcomeChoicePage /> }],
-  },
-  {
-    path: '/vendor-portal',
-    element: <VendorPortalRoot />,
-    children: [
-      { path: 'login', element: <VendorLoginPage /> },
-      {
-        element: <VendorPortalLayout />,
-        children: [
-          { index: true, element: <VendorOrdersListPage /> },
-          { path: 'orders/:id', element: <VendorOrderDetailPage /> },
-        ],
-      },
-    ],
   },
   {
     element: <BlankLayout />,

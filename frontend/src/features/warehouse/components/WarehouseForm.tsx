@@ -19,6 +19,9 @@ const STATUS_OPTIONS = [
   { label: 'At Capacity', value: 'at-capacity' },
 ]
 
+type NumericField = 'capacityUnits' | 'usedUnits'
+type FormState = Omit<WarehouseInput, NumericField> & Record<NumericField, number | ''>
+
 interface WarehouseFormProps {
   initialValue?: Warehouse
   onSubmit: (input: WarehouseInput) => Promise<void>
@@ -27,7 +30,7 @@ interface WarehouseFormProps {
 }
 
 export function WarehouseForm({ initialValue, onSubmit, isSubmitting, submitLabel = 'Save warehouse' }: WarehouseFormProps) {
-  const [form, setForm] = useState<WarehouseInput>({
+  const [form, setForm] = useState<FormState>({
     name: initialValue?.name ?? '',
     code: initialValue?.code ?? '',
     type: initialValue?.type ?? 'mixed',
@@ -35,23 +38,26 @@ export function WarehouseForm({ initialValue, onSubmit, isSubmitting, submitLabe
     state: initialValue?.state ?? '',
     country: initialValue?.country ?? 'India',
     managerName: initialValue?.managerName ?? '',
-    capacityUnits: initialValue?.capacityUnits ?? 10000,
-    usedUnits: initialValue?.usedUnits ?? 0,
+    capacityUnits: initialValue?.capacityUnits ?? '',
+    usedUnits: initialValue?.usedUnits ?? '',
     status: initialValue?.status ?? 'operational',
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
+
+  const capacityUnits = form.capacityUnits === '' ? 0 : form.capacityUnits
+  const usedUnits = form.usedUnits === '' ? 0 : form.usedUnits
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     const nextErrors: Record<string, string> = {}
     if (!form.name.trim()) nextErrors.name = 'Warehouse name is required.'
     if (!form.code.trim()) nextErrors.code = 'Warehouse code is required.'
-    if (form.capacityUnits <= 0) nextErrors.capacityUnits = 'Capacity must be greater than zero.'
-    if (form.usedUnits > form.capacityUnits) nextErrors.usedUnits = 'Used units cannot exceed capacity.'
+    if (capacityUnits <= 0) nextErrors.capacityUnits = 'Capacity must be greater than zero.'
+    if (usedUnits > capacityUnits) nextErrors.usedUnits = 'Used units cannot exceed capacity.'
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
 
-    await onSubmit(form)
+    await onSubmit({ ...form, capacityUnits, usedUnits })
   }
 
   return (
@@ -85,15 +91,17 @@ export function WarehouseForm({ initialValue, onSubmit, isSubmitting, submitLabe
             <Input
               label="Capacity (units)"
               type="number"
+              placeholder="e.g. 10000"
               value={form.capacityUnits}
-              onChange={(e) => setForm({ ...form, capacityUnits: Number(e.target.value) })}
+              onChange={(e) => setForm({ ...form, capacityUnits: e.target.value === '' ? '' : Number(e.target.value) })}
               error={errors.capacityUnits}
             />
             <Input
               label="Used (units)"
               type="number"
+              placeholder="e.g. 0"
               value={form.usedUnits}
-              onChange={(e) => setForm({ ...form, usedUnits: Number(e.target.value) })}
+              onChange={(e) => setForm({ ...form, usedUnits: e.target.value === '' ? '' : Number(e.target.value) })}
               error={errors.usedUnits}
             />
             <Select

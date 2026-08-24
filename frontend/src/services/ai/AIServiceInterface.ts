@@ -1,4 +1,6 @@
 import type {
+  BomSuggestRequest,
+  BomSuggestResponse,
   ChatRequest,
   ChatResponse,
   ExplainRequest,
@@ -20,4 +22,5 @@ export interface IAIService {
   explain(req: ExplainRequest): Promise<ExplainResponse>
   summarize(req: SummarizeRequest): Promise<SummarizeResponse>
   help(req: HelpRequest): Promise<HelpResponse>
+  suggestBom(req: BomSuggestRequest): Promise<BomSuggestResponse>
 }

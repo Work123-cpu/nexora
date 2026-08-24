@@ -1,4 +1,4 @@
-import { createSeededRandom, seededFloat } from '@/mocks/generators/seedRandom'
+import { createSeededRandom, seededFloat } from '@/shared/lib/seedRandom'
 import type { Vendor } from '@/types/entities/vendor'
 
 function hashSeed(id: string): number {

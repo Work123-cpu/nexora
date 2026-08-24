@@ -1,27 +1,43 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Pencil } from 'lucide-react'
 import { DataTable, type DataTableColumn } from '@/shared/ui/DataTable'
 import { SearchInput } from '@/shared/ui/SearchInput'
 import { FilterBar, FilterChip } from '@/shared/ui/FilterBar'
 import { Pagination } from '@/shared/ui/Pagination'
 import { Badge } from '@/shared/ui/Badge'
 import { ProgressBar } from '@/shared/ui/ProgressBar'
+import { IconButton } from '@/shared/ui/IconButton'
 import { useDebounce } from '@/shared/hooks/useDebounce'
 import { usePagination } from '@/shared/hooks/usePagination'
 import { formatNumber } from '@/shared/lib/formatters'
 import { useWarehouses } from '@/features/warehouse/hooks/useWarehouses'
-import type { InventoryItem } from '@/types/entities/inventory'
+import type { InventoryItem, InventoryItemType } from '@/types/entities/inventory'
 import { useInventoryItems } from '../hooks/useInventory'
 
-export function InventoryItemsTable() {
+interface InventoryItemsTableProps {
+  itemType: InventoryItemType
+}
+
+export function InventoryItemsTable({ itemType }: InventoryItemsTableProps) {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [warehouseId, setWarehouseId] = useState<string | undefined>(undefined)
   const [lowStockOnly, setLowStockOnly] = useState(false)
+  const [sortBy, setSortBy] = useState<string | undefined>('itemName')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const { page, pageSize, setPage } = usePagination(1, 8)
   const debouncedSearch = useDebounce(search)
 
-  const { data, isLoading } = useInventoryItems({ page, pageSize, search: debouncedSearch, warehouseId, lowStockOnly, sortBy: 'itemName' })
+  const { data, isLoading } = useInventoryItems({ page, pageSize, search: debouncedSearch, itemType, warehouseId, lowStockOnly, sortBy, sortDir })
+
+  const handleSort = (key: string) => {
+    if (sortBy === key) setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
+    else {
+      setSortBy(key)
+      setSortDir('asc')
+    }
+  }
   const { data: warehousesData } = useWarehouses({ pageSize: 10000 })
   const warehouses = warehousesData?.items ?? []
 
@@ -29,6 +45,7 @@ export function InventoryItemsTable() {
     {
       key: 'itemName',
       header: 'Item',
+      sortable: true,
       render: (item) => (
         <div>
           <p className="font-medium text-foreground">{item.itemName}</p>
@@ -37,7 +54,7 @@ export function InventoryItemsTable() {
       ),
     },
     { key: 'warehouse', header: 'Warehouse', render: (item) => warehouses.find((w) => w.id === item.warehouseId)?.name ?? '—' },
-    { key: 'onHand', header: 'On Hand', render: (item) => `${formatNumber(item.quantityOnHand)} ${item.unit}` },
+    { key: 'quantityOnHand', header: 'On Hand', sortable: true, render: (item) => `${formatNumber(item.quantityOnHand)} ${item.unit}` },
     {
       key: 'coverage',
       header: 'Stock Coverage',
@@ -62,6 +79,21 @@ export function InventoryItemsTable() {
         if (isLow) return <Badge tone="warning">Low</Badge>
         return <Badge tone="success">Healthy</Badge>
       },
+    },
+    {
+      key: 'actions',
+      header: '',
+      headerClassName: 'w-0',
+      render: (item) => (
+        <div onClick={(e) => e.stopPropagation()}>
+          <IconButton
+            icon={<Pencil className="size-3.5" />}
+            variant="ghost"
+            aria-label={`Edit ${item.itemName}`}
+            onClick={() => navigate(`/app/inventory/${item.id}/edit`)}
+          />
+        </div>
+      ),
     },
   ]
 
@@ -90,7 +122,10 @@ export function InventoryItemsTable() {
         isLoading={isLoading}
         rowKey={(item) => item.id}
         onRowClick={(item) => navigate(item.itemType === 'rawMaterial' ? `/app/raw-materials/${item.itemId}` : `/app/products/${item.itemId}`)}
-        emptyTitle="No inventory items found"
+        sortBy={sortBy}
+        sortDir={sortDir}
+        onSortChange={handleSort}
+        emptyTitle={itemType === 'product' ? 'No product stock tracked yet' : 'No raw material stock tracked yet'}
       />
 
       {data && data.total > 0 && (

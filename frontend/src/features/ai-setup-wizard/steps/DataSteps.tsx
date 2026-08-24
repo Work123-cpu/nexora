@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Boxes, ListTree, Package, Plus, Upload, Warehouse } from 'lucide-react'
 import { StatCard } from '@/shared/ui/StatCard'
@@ -6,15 +6,14 @@ import { EmptyState } from '@/shared/ui/EmptyState'
 import { Button } from '@/shared/ui/Button'
 import { BulkImportDialog } from '@/shared/ui/BulkImportDialog'
 import { useToast } from '@/shared/ui/Toast'
-import { PRODUCT_CATEGORIES } from '@/mocks/seed/products.seed'
+import { PRODUCT_CATEGORIES } from '@/features/products/constants'
 import { formatNumber } from '@/shared/lib/formatters'
 import { useCreateProduct, useProducts } from '@/features/products/hooks/useProducts'
 import type { ProductInput } from '@/features/products/services/productService'
 import { mapProductCsvRow, PRODUCT_CSV_TEMPLATE } from '@/features/products/lib/csvMapper'
 import { useCreateRawMaterial, useRawMaterials } from '@/features/raw-materials/hooks/useRawMaterials'
-import type { RawMaterialInput } from '@/features/raw-materials/services/rawMaterialService'
-import { mapRawMaterialCsvRow, RAW_MATERIAL_CSV_TEMPLATE } from '@/features/raw-materials/lib/csvMapper'
-import { useVendors } from '@/features/vendors/hooks/useVendors'
+import { mapRawMaterialCsvRow, RAW_MATERIAL_CSV_TEMPLATE, type RawMaterialCsvInput } from '@/features/raw-materials/lib/csvMapper'
+import { useVendors, useCreateVendor } from '@/features/vendors/hooks/useVendors'
 import { useBOMs } from '@/features/bom/hooks/useBOM'
 import { useInventoryItems } from '@/features/inventory/hooks/useInventory'
 import { useWizard } from '../context/WizardContext'
@@ -74,11 +73,44 @@ export function RawMaterialsStep() {
   const { toast } = useToast()
   const [importOpen, setImportOpen] = useState(false)
   const createRawMaterial = useCreateRawMaterial()
+  const createVendor = useCreateVendor()
+  const vendorCache = useRef<Map<string, string>>(new Map())
+  const newVendorCount = useRef(0)
   const { data } = useRawMaterials({ pageSize: 10000 })
   const rawMaterials = data?.items ?? []
   const { data: vendorsData } = useVendors({ pageSize: 10000 })
   const vendors = vendorsData?.items ?? []
   const categories = Array.from(new Set(rawMaterials.map((rm) => rm.category)))
+
+  const resolveOrCreateVendorId = async (vendorName: string): Promise<string> => {
+    const key = vendorName.toLowerCase()
+    const cached = vendorCache.current.get(key)
+    if (cached) return cached
+    const existing = vendors.find((v) => v.name.toLowerCase() === key)
+    if (existing) {
+      vendorCache.current.set(key, existing.id)
+      return existing.id
+    }
+    const created = await createVendor.mutateAsync({
+      name: vendorName,
+      category: 'General',
+      contactName: '',
+      email: '',
+      phone: '',
+      city: '',
+      country: '',
+      rating: 0,
+      onTimeDeliveryPct: 0,
+      qualityScorePct: 0,
+      leadTimeDays: 0,
+      activeContracts: 0,
+      materialsSupplied: [],
+      status: 'active',
+    })
+    vendorCache.current.set(key, created.id)
+    newVendorCount.current += 1
+    return created.id
+  }
 
   return (
     <WizardStepLayout
@@ -99,22 +131,38 @@ export function RawMaterialsStep() {
             Add a material manually
           </Button>
         </Link>
-        <Button type="button" variant="outline" size="sm" leftIcon={<Upload className="size-3.5" />} onClick={() => setImportOpen(true)}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          leftIcon={<Upload className="size-3.5" />}
+          onClick={() => {
+            vendorCache.current.clear()
+            newVendorCount.current = 0
+            setImportOpen(true)
+          }}
+        >
           Bulk import CSV
         </Button>
       </div>
 
-      <BulkImportDialog<RawMaterialInput>
+      <BulkImportDialog<RawMaterialCsvInput>
         open={importOpen}
         onClose={() => setImportOpen(false)}
         title="Bulk Import Raw Materials"
-        description="Upload a CSV to add many materials at once. Vendor names must match an existing vendor exactly."
+        description="Upload a CSV to add many materials at once. A vendor name that doesn't exist yet is created automatically — fill in its contact details afterward from the Vendors page."
         templateFilename={RAW_MATERIAL_CSV_TEMPLATE.filename}
         templateHeaders={RAW_MATERIAL_CSV_TEMPLATE.headers}
         templateExampleRow={RAW_MATERIAL_CSV_TEMPLATE.exampleRow(vendors)}
-        mapRow={(row) => mapRawMaterialCsvRow(row, vendors)}
-        onImportRow={(input) => createRawMaterial.mutateAsync(input)}
-        onImported={(count) => toast({ title: 'Import complete', description: `${count} raw material(s) added.`, tone: 'success' })}
+        mapRow={mapRawMaterialCsvRow}
+        onImportRow={async ({ vendorName, ...input }) => {
+          const primaryVendorId = await resolveOrCreateVendorId(vendorName)
+          return createRawMaterial.mutateAsync({ ...input, primaryVendorId })
+        }}
+        onImported={(count) => {
+          const vendorNote = newVendorCount.current > 0 ? ` (${newVendorCount.current} new vendor${newVendorCount.current === 1 ? '' : 's'} created automatically)` : ''
+          toast({ title: 'Import complete', description: `${count} raw material(s) added${vendorNote}.`, tone: 'success' })
+        }}
       />
     </WizardStepLayout>
   )

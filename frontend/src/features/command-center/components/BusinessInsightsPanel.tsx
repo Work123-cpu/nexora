@@ -3,26 +3,26 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/Card'
 import { useBusinessHealth } from '@/shared/hooks/useBusinessHealth'
 import { useLiveMarketSignals } from '@/shared/hooks/useLiveMarketSignals'
 import { getSpendChangePct } from '@/shared/lib/procurementAnalytics'
-import { useInventoryItems } from '@/features/inventory/hooks/useInventory'
 import { useRawMaterials } from '@/features/raw-materials/hooks/useRawMaterials'
 import { usePurchaseOrders } from '@/features/procurement/hooks/usePurchaseOrders'
+import { useNotifications } from '@/features/notifications/hooks/useNotifications'
 
 export function BusinessInsightsPanel() {
   const { health } = useBusinessHealth()
-  const { data: inventoryData } = useInventoryItems({ pageSize: 10000 })
+  const { notifications } = useNotifications()
   const { data: materialsData } = useRawMaterials({ pageSize: 10000 })
   const { data: poData } = usePurchaseOrders({ pageSize: 10000 })
   const { signals: marketSignals } = useLiveMarketSignals(materialsData?.items ?? [])
 
-  const criticalItems = (inventoryData?.items ?? []).filter((i) => i.quantityOnHand <= i.safetyStock)
+  const criticalCount = notifications.filter((n) => n.category === 'inventory' && n.priority === 'critical').length
   const spendChange = getSpendChangePct(poData?.items ?? [])
 
   const insights = [
     (poData?.items.length ?? 0) > 0
       ? `Procurement spend is ${spendChange >= 0 ? 'up' : 'down'} ${Math.abs(spendChange)}% over the last 30 days compared to the prior period.`
       : 'No purchase orders yet — spend trends will appear once you start ordering from vendors.',
-    criticalItems.length > 0
-      ? `${criticalItems.length} item(s) are below safety stock — this is the leading driver of your current inventory health score.`
+    criticalCount > 0
+      ? `${criticalCount} item(s) are below safety stock — this is the leading driver of your current inventory health score.`
       : 'No items are currently below safety stock — inventory health is stable.',
     marketSignals.length > 0
       ? `${marketSignals.length} live market indicator(s) are tracked against your raw materials this week.`

@@ -1,8 +1,11 @@
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Boxes, MapPin, Plus, User, Warehouse as WarehouseIcon } from 'lucide-react'
+import { ArrowDown, ArrowUp, Boxes, MapPin, Plus, User, Warehouse as WarehouseIcon } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/layout/PageHeader'
 import { Card, CardContent } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
+import { IconButton } from '@/shared/ui/IconButton'
+import { Select } from '@/shared/ui/Select'
 import { StatCard } from '@/shared/ui/StatCard'
 import { Badge } from '@/shared/ui/Badge'
 import { ProgressBar } from '@/shared/ui/ProgressBar'
@@ -17,9 +20,18 @@ const TYPE_LABEL: Record<string, string> = {
   'cold-storage': 'Cold Storage',
 }
 
+const SORT_OPTIONS = [
+  { label: 'Name', value: 'name' },
+  { label: 'City', value: 'city' },
+  { label: 'Capacity', value: 'capacityUnits' },
+  { label: 'Used', value: 'usedUnits' },
+]
+
 export function WarehouseListPage() {
   const navigate = useNavigate()
-  const { data } = useWarehouses({ pageSize: 20 })
+  const [sortBy, setSortBy] = useState('name')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  const { data } = useWarehouses({ pageSize: 20, sortBy, sortDir })
   const warehouses = data?.items ?? []
 
   const totalCapacity = warehouses.reduce((sum, w) => sum + w.capacityUnits, 0)
@@ -45,6 +57,16 @@ export function WarehouseListPage() {
         <StatCard label="Total Warehouses" value={formatNumber(warehouses.length)} icon={<WarehouseIcon className="size-5" />} tone="primary" />
         <StatCard label="Average Utilization" value={formatPercent(avgUtilization, 0)} icon={<Boxes className="size-5" />} tone="warning" />
         <StatCard label="Operational" value={`${operational} / ${warehouses.length}`} icon={<Boxes className="size-5" />} tone="success" />
+      </div>
+
+      <div className="mb-4 flex items-center justify-end gap-2">
+        <Select className="h-9 w-36" value={sortBy} onChange={(e) => setSortBy(e.target.value)} options={SORT_OPTIONS} />
+        <IconButton
+          icon={sortDir === 'asc' ? <ArrowUp className="size-4" /> : <ArrowDown className="size-4" />}
+          variant="default"
+          aria-label={sortDir === 'asc' ? 'Sorted ascending — click for descending' : 'Sorted descending — click for ascending'}
+          onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
+        />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

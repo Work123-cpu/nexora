@@ -10,8 +10,10 @@ import { Skeleton } from '@/shared/ui/Skeleton'
 import { formatNumber } from '@/shared/lib/formatters'
 import { useProducts } from '@/features/products/hooks/useProducts'
 import { useInventoryItems } from '@/features/inventory/hooks/useInventory'
+import { useBills } from '@/features/billing/hooks/useBills'
 import type { ForecastGranularity, ForecastResponse } from '@/services/forecast'
 import { useProductForecasts } from '../hooks/useForecast'
+import { computeDailySalesHistory } from '@/lib/salesHistory/computeSalesHistory'
 import { ExportMenu } from './ExportMenu'
 
 const GRANULARITY_OPTIONS: { label: string; value: ForecastGranularity }[] = [
@@ -46,6 +48,7 @@ export function ForecastReport() {
   const [granularity, setGranularity] = useState<ForecastGranularity>('week')
   const { data: productsData } = useProducts({ pageSize: 10000 })
   const { data: inventoryData } = useInventoryItems({ pageSize: 10000 })
+  const { data: billsData } = useBills({ pageSize: 10000 })
   const getInventoryByItemId = (id: string) => inventoryData?.items.find((i) => i.itemId === id)
 
   const trackedProducts = useMemo(() => (productsData?.items ?? []).filter((p) => p.status === 'active').slice(0, 10), [productsData])
@@ -62,10 +65,11 @@ export function ForecastReport() {
           avgDailyUsage: inv?.avgDailyUsage ?? 1,
           granularity,
           horizon: 1,
+          recentSalesHistory: computeDailySalesHistory(billsData?.items ?? [], p.id),
         }
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [trackedProducts, granularity, inventoryData],
+    [trackedProducts, granularity, inventoryData, billsData],
   )
   const trendRequests = useMemo(
     () => forecastRequests.map((r) => ({ ...r, horizon: TREND_HORIZON })),
@@ -96,6 +100,7 @@ export function ForecastReport() {
   const allLoaded = forecastResults.length > 0 && forecastResults.every((r) => r.data)
   const anyNaive = forecastResults.some((r) => r.data?.modelUsed === 'naive_projection')
   const anyDegraded = forecastResults.some((r) => r.data?.degraded)
+  const realHistoryCount = forecastResults.filter((r) => r.data && r.data.isSynthetic === false).length
   const totalProjected = allLoaded
     ? forecastResults.reduce((sum, r) => sum + (r.data?.points[0]?.predictedUnits ?? 0), 0)
     : undefined
@@ -148,7 +153,13 @@ export function ForecastReport() {
       : 'Running in mock mode (VITE_USE_MOCK_FORECAST=true) — showing a simple avg-usage projection instead of live ML models.'
     : `Forecasts are produced by genuinely-trained XGBoost / Random Forest models${
         avgConfidence !== undefined ? ` (avg. confidence ${(avgConfidence * 100).toFixed(0)}%)` : ''
-      }. Training data is synthetic (no real sales history exists yet) — see each model's response for details.`
+      }. ${
+        realHistoryCount === 0
+          ? "None of these products have 28 days of real sales history yet, so they're forecast from a category-level estimate — this becomes your own data automatically once enough bills accumulate."
+          : realHistoryCount === trackedProducts.length
+            ? 'Every one of these forecasts is built from your own real sales history.'
+            : `${realHistoryCount} of ${trackedProducts.length} products are forecast from your own real sales history; the rest use a category-level estimate until they build up 28 days of sales.`
+      }`
 
   return (
     <div className="space-y-6">

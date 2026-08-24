@@ -9,6 +9,7 @@ interface CategorySelectProps {
   defaults: readonly string[]
   value: string
   onChange: (category: string) => void
+  error?: string
 }
 
 /**
@@ -17,7 +18,7 @@ interface CategorySelectProps {
  * suggestion) — no separate "new category" mode to find first. Replaces the old two-step
  * select-or-add-new-input toggle, which buried free text entry behind a small link.
  */
-export function CategorySelect({ label = 'Category', storageKey, defaults, value, onChange }: CategorySelectProps) {
+export function CategorySelect({ label = 'Category', storageKey, defaults, value, onChange, error }: CategorySelectProps) {
   const [categories, setCategories] = useState(() => getCategories(storageKey, defaults))
   const [query, setQuery] = useState(value)
   const [open, setOpen] = useState(false)
@@ -58,7 +59,10 @@ export function CategorySelect({ label = 'Category', storageKey, defaults, value
       )}
       <input
         id={`category-${storageKey}`}
-        className="h-10 w-full rounded-xl border border-border bg-surface px-3.5 text-sm text-foreground transition-colors focus-ring focus:border-primary"
+        className={cn(
+          'h-10 w-full rounded-xl border border-border bg-surface px-3.5 text-sm text-foreground transition-colors focus-ring focus:border-primary',
+          error && 'border-danger focus:border-danger',
+        )}
         value={query}
         placeholder="Type to search or add a category…"
         onChange={(e) => {
@@ -123,6 +127,7 @@ export function CategorySelect({ label = 'Category', storageKey, defaults, value
           {filtered.length === 0 && !query.trim() && <div className="px-3.5 py-2 text-sm text-muted-foreground">Start typing to add a category</div>}
         </div>
       )}
+      {error && <p className="text-xs text-danger">{error}</p>}
     </div>
   )
 }

@@ -9,6 +9,10 @@ export interface ForecastRequest {
   avgDailyUsage: number
   granularity: ForecastGranularity
   horizon: number
+  /** Trailing daily units-sold for this product, computed from real bills — see
+   * features/reports/lib/computeSalesHistory.ts. Omitted when there isn't enough real history
+   * yet; the ai-service then honestly falls back to a category-level estimate. */
+  recentSalesHistory?: number[]
 }
 
 export interface ForecastPoint {

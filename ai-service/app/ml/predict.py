@@ -28,8 +28,22 @@ def _seed_buffer(category: str) -> list[float]:
     return history["units_sold"].tail(MIN_HISTORY_WINDOW).tolist()
 
 
-def rollout_daily(trained: TrainedCategoryModel, category: str, num_days: int, start_date: date) -> list[tuple[date, float]]:
+def rollout_daily(
+    trained: TrainedCategoryModel,
+    category: str,
+    num_days: int,
+    start_date: date,
+    real_history: list[float] | None = None,
+) -> list[tuple[date, float]]:
     """Predicts `num_days` consecutive real calendar days starting at `start_date`.
+
+    When `real_history` has at least MIN_HISTORY_WINDOW trailing daily sales figures for the
+    actual product being forecast, it seeds the lag/rolling-mean features instead of the
+    synthetic category buffer — the rollout still runs through the same trained tree ensemble
+    (so the model's learned seasonality/trend shape is unchanged), but the recent-momentum
+    features it starts from reflect this specific product's real recent sales rather than a
+    generic category pattern. Too little real history (a genuinely new product) falls back to
+    the synthetic buffer rather than seeding from a short, misleadingly-precise real window.
 
     Note: since the model was trained on a fixed synthetic window (see ml/constants.py
     EPOCH_DATE/HISTORY_DAYS), a `start_date` far in the future produces a `trend_index` feature
@@ -39,7 +53,10 @@ def rollout_daily(trained: TrainedCategoryModel, category: str, num_days: int, s
     training horizon. That's an honest, expected limitation of tree models for time series, not a
     bug — the confidence/MAE figures returned alongside these predictions reflect that.
     """
-    buffer = list(_seed_buffer(category))
+    if real_history is not None and len(real_history) >= MIN_HISTORY_WINDOW:
+        buffer = list(real_history[-MIN_HISTORY_WINDOW:])
+    else:
+        buffer = list(_seed_buffer(category))
     results: list[tuple[date, float]] = []
 
     for i in range(num_days):

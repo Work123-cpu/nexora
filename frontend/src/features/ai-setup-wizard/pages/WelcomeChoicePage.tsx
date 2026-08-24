@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { ArrowRight, PartyPopper, Rocket } from 'lucide-react'
 import { KineticHeading } from '@/shared/ui/motion/KineticHeading'
 import { useAuth } from '@/features/auth/context/AuthContext'
+import { WIZARD_STEP_KEY, WIZARD_DATA_KEY } from '../context/WizardContext'
 
 /**
  * Shown once, right after registration, instead of forcing straight into the Setup Wizard.
@@ -46,7 +47,14 @@ export function WelcomeChoicePage() {
       >
         <button
           type="button"
-          onClick={() => navigate('/setup')}
+          onClick={() => {
+            // Always start a brand-new company's wizard at Welcome — these keys aren't scoped
+            // per-company, so a previously completed wizard (this browser's or another
+            // account's) would otherwise make setup resume mid-flow or on the finish screen.
+            localStorage.removeItem(WIZARD_STEP_KEY)
+            localStorage.removeItem(WIZARD_DATA_KEY)
+            navigate('/setup')
+          }}
           className="group flex flex-col items-start gap-3 rounded-2xl border-2 border-primary bg-primary-soft p-5 text-left transition-transform hover:-translate-y-0.5"
         >
           <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-white">

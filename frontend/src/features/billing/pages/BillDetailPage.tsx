@@ -11,7 +11,6 @@ import { EmptyState } from '@/shared/ui/EmptyState'
 import { useToast } from '@/shared/ui/Toast'
 import { formatCurrency, formatDate } from '@/shared/lib/formatters'
 import { useWarehouse } from '@/features/warehouse/hooks/useWarehouses'
-import { generateBillPdf } from '../lib/generateBillPdf'
 import { useBill, useCancelBill } from '../hooks/useBills'
 import { RoleGuard } from '@/app/router/RoleGuard'
 
@@ -34,6 +33,7 @@ export function BillDetailPage() {
   const handleDownloadPdf = async () => {
     setIsDownloading(true)
     try {
+      const { generateBillPdf } = await import('../lib/generateBillPdf')
       await generateBillPdf(bill, warehouse?.name)
       toast({ title: 'PDF downloaded', description: `${bill.billNumber}.pdf has been downloaded.`, tone: 'success' })
     } catch {

@@ -14,7 +14,7 @@ import { Dialog } from '@/shared/ui/Dialog'
 import { useToast } from '@/shared/ui/Toast'
 import { RoleGuard } from '@/app/router/RoleGuard'
 import { formatDate } from '@/shared/lib/formatters'
-import { getVendorById } from '@/mocks/seed/vendors.seed'
+import { useVendors } from '@/features/vendors/hooks/useVendors'
 import type { CalendarEventType } from '@/types/entities/calendarEvent'
 import { MonthCalendarGrid } from '../components/MonthCalendarGrid'
 import { useCalendarEvents, useCreateCalendarEvent, useDeleteCalendarEvent } from '../hooks/useCalendarEvents'
@@ -33,6 +33,9 @@ export function BusinessCalendarPage() {
   const { data: calendarEvents } = useCalendarEvents()
   const createEvent = useCreateCalendarEvent()
   const deleteEvent = useDeleteCalendarEvent()
+  const { data: vendorsData } = useVendors({ pageSize: 10000 })
+  const vendors = vendorsData?.items ?? []
+  const getVendorById = (id: string) => vendors.find((v) => v.id === id)
 
   const [typeFilter, setTypeFilter] = useState<CalendarEventType | undefined>(undefined)
   const [selectedDate, setSelectedDate] = useState(new Date())

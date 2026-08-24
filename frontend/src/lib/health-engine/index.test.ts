@@ -1,8 +1,38 @@
 import { describe, it, expect } from 'vitest'
 import { computeBusinessHealth, type BusinessHealthInputs } from './index'
-import { inventoryItems } from '@/mocks/seed/inventory.seed'
-import { vendors } from '@/mocks/seed/vendors.seed'
-import { purchaseOrders } from '@/mocks/seed/purchaseOrders.seed'
+import type { InventoryItem } from '@/types/entities/inventory'
+import type { Vendor } from '@/types/entities/vendor'
+import type { PurchaseOrder } from '@/types/entities/purchaseOrder'
+
+const inventoryItems: InventoryItem[] = [
+  {
+    id: 'inv-1', itemType: 'rawMaterial', itemId: 'rm-1', itemName: 'Wheat Flour', category: 'Grains', unit: 'kg',
+    warehouseId: 'wh-1', quantityOnHand: 20, safetyStock: 50, reorderPoint: 100, reorderQuantity: 200,
+    avgDailyUsage: 10, lastRestockedAt: '2026-01-01T00:00:00.000Z',
+  },
+  {
+    id: 'inv-2', itemType: 'rawMaterial', itemId: 'rm-2', itemName: 'Sugar', category: 'Sweeteners', unit: 'kg',
+    warehouseId: 'wh-1', quantityOnHand: 80, safetyStock: 50, reorderPoint: 100, reorderQuantity: 150,
+    avgDailyUsage: 5, lastRestockedAt: '2026-01-01T00:00:00.000Z',
+  },
+]
+
+const vendors: Vendor[] = [
+  {
+    id: 'vnd-1', name: 'Golden Grain Co', category: 'Grains', contactName: 'Asha Rao', email: 'asha@goldengrain.test',
+    phone: '555-0100', city: 'Pune', country: 'India', rating: 4.2, onTimeDeliveryPct: 92, qualityScorePct: 88,
+    leadTimeDays: 5, activeContracts: 2, materialsSupplied: ['Wheat Flour'], status: 'active', createdAt: '2026-01-01T00:00:00.000Z',
+  },
+]
+
+const purchaseOrders: PurchaseOrder[] = [
+  {
+    id: 'po-1', poNumber: 'PO-1001', vendorId: 'vnd-1', status: 'pending_approval',
+    items: [{ rawMaterialId: 'rm-1', rawMaterialName: 'Wheat Flour', quantity: 200, unit: 'kg', unitCost: 1.2 }],
+    totalAmount: 240, createdAt: '2026-01-01T00:00:00.000Z', expectedDeliveryDate: '2026-01-10T00:00:00.000Z',
+    createdBy: 'user-1', timeline: [{ status: 'draft', date: '2026-01-01T00:00:00.000Z' }],
+  },
+]
 
 const inputs: BusinessHealthInputs = { inventoryItems, vendors, purchaseOrders, marketSignals: [] }
 

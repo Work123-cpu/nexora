@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { MapPin, Phone, Plus, Truck } from 'lucide-react'
+import { ArrowDown, ArrowUp, MapPin, Phone, Plus, Truck } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/layout/PageHeader'
 import { SearchInput } from '@/shared/ui/SearchInput'
 import { FilterBar, FilterChip } from '@/shared/ui/FilterBar'
 import { Card, CardContent } from '@/shared/ui/Card'
 import { Badge } from '@/shared/ui/Badge'
 import { Button } from '@/shared/ui/Button'
+import { IconButton } from '@/shared/ui/IconButton'
+import { Select } from '@/shared/ui/Select'
 import { StatCard } from '@/shared/ui/StatCard'
 import { RoleGuard } from '@/app/router/RoleGuard'
 import { useDebounce } from '@/shared/hooks/useDebounce'
@@ -16,12 +18,22 @@ import { VendorRatingStars } from '../components/VendorRatingStars'
 
 const STATUS_TONE = { active: 'success', 'under-review': 'warning', inactive: 'neutral' } as const
 
+const SORT_OPTIONS = [
+  { label: 'Name', value: 'name' },
+  { label: 'Category', value: 'category' },
+  { label: 'City', value: 'city' },
+  { label: 'Rating', value: 'rating' },
+  { label: 'Lead time', value: 'leadTimeDays' },
+]
+
 export function VendorListPage() {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState<string | undefined>(undefined)
+  const [sortBy, setSortBy] = useState('name')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const debouncedSearch = useDebounce(search)
-  const { data } = useVendors({ search: debouncedSearch, category, pageSize: 50 })
+  const { data } = useVendors({ search: debouncedSearch, category, pageSize: 50, sortBy, sortDir })
   // Stat cards and category filter chips summarize every vendor, not just this page's results.
   const { data: allData } = useVendors({ pageSize: 10000 })
 
@@ -52,6 +64,18 @@ export function VendorListPage() {
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <SearchInput value={search} onChange={setSearch} placeholder="Search vendors by name, category, or city…" className="sm:max-w-sm" />
+        <div className="flex items-center gap-2">
+          <Select className="h-9 w-36" value={sortBy} onChange={(e) => setSortBy(e.target.value)} options={SORT_OPTIONS} />
+          <IconButton
+            icon={sortDir === 'asc' ? <ArrowUp className="size-4" /> : <ArrowDown className="size-4" />}
+            variant="default"
+            aria-label={sortDir === 'asc' ? 'Sorted ascending — click for descending' : 'Sorted descending — click for ascending'}
+            onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
+          />
+        </div>
+      </div>
+
+      <div className="mb-4">
         <FilterBar>
           <FilterChip active={!category} onClick={() => setCategory(undefined)}>
             All categories
