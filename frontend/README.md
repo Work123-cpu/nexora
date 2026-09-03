@@ -1,32 +1,51 @@
-# React + TypeScript + Vite
+# Nexora Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React 19 + TypeScript + Vite single-page application — the full Nexora UI. See the
+[root README](../README.md) for how this fits with `backend/` and `ai-service/`.
 
-Currently, two official plugins are available:
+## Setup
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+cp .env.example .env   # defaults already point at the local backend/AI service
+npm run dev             # http://localhost:5173
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Requires the backend running at `http://localhost:8081` (see
+[`../backend/README.md`](../backend/README.md)) for real data — this app has no
+built-in mock/offline mode.
+
+## Environment variables (`.env`)
+
+| Variable | Purpose |
+| --- | --- |
+| `VITE_API_BASE_URL` | Base URL of the Spring Boot backend, e.g. `http://localhost:8081/api`. |
+| `VITE_AI_SERVICE_URL` | Base URL of the FastAPI AI service, e.g. `http://localhost:8000`. |
+| `VITE_USE_MOCK_AI` | `false` routes chat/summaries through the real AI service; `true` uses a canned mock response. |
+| `VITE_USE_MOCK_FORECAST` | `false` routes demand forecasting through the AI service's trained models; `true` uses a naive average-usage projection. |
+
+## Scripts
+
+```bash
+npm run dev       # start the dev server
+npm run build     # type-check (tsc -b) then production build
+npm run preview   # preview a production build locally
+npm run lint       # Oxlint
+npm test           # unit tests (vitest) — recommendation engine, health engine, BOM costing
+npm run test:watch # vitest in watch mode
+npm run test:e2e   # end-to-end tests (Playwright) — needs the dev server + backend running
+```
+
+## Source layout (`src/`)
+
+```
+app/        Router, layouts, top-level providers
+features/   One folder per business feature (products, billing, market-intelligence, ...) —
+            each with its own pages/, components/, hooks/, services/
+shared/     Reusable UI components, hooks, and utilities used across features
+services/   Cross-cutting API adapters (ai/, forecast/) with real vs. mock implementations
+lib/        Pure business logic with no UI or network dependency (recommendation engine,
+            health-score engine, sales-history calculations)
+theme/      Chart color tokens
+types/      Shared TypeScript entity types
+```

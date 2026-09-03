@@ -63,16 +63,11 @@ curl http://localhost:8081/api/products -H "Authorization: Bearer <token>"
 
 ## Connecting the frontend
 
-`VITE_USE_MOCK_BACKEND=false` is the **default** in `frontend/.env` — as long as this
-backend and MySQL are running, `npm run dev` in `frontend/` talks to them automatically
-for auth, Products, Raw Materials, Vendors, Warehouses, BOM, Inventory, and Purchase
-Orders (every module, verified end-to-end for each). Register a real account via the
-app's "Create one" link on the login page, or via `curl` as shown above.
-
-Set `VITE_USE_MOCK_BACKEND=true` instead if you want to explore the UI without running
-MySQL/this backend at all — that falls back to an in-memory mock dataset (a fictional
-bakery company, any password signs in). Restart `npm run dev` after changing it (Vite
-only reads `.env` at startup).
+As long as this backend and MySQL are running, `npm run dev` in `frontend/` talks to
+them automatically for every module — auth, Products, Raw Materials, Vendors,
+Warehouses, BOM, Inventory, Purchase Orders, Billing, Notifications, Business Calendar,
+Team Members, and Market Intelligence. Register a real account via the app's "Create
+one" link on the login page, or via `curl` as shown above.
 
 **Known limitation**: a couple of forms (`BomForm`, `PurchaseOrderCreatePage`) still
 populate their dropdown *options* (which product/vendor/material to pick from) by
@@ -83,23 +78,32 @@ under your own company.
 
 ## What's implemented
 
-- **Entities**: Company, User, Product, RawMaterial, BillOfMaterials, Warehouse,
-  Vendor, InventoryItem, PurchaseOrder — every row scoped by `company_id`.
+- **Entities**: Company, User, TeamMember, Product, RawMaterial, BillOfMaterials,
+  Warehouse, Vendor, InventoryItem, PurchaseOrder, Bill/BillLineItem, CalendarEvent,
+  Notification, RawMaterialIntelligence/MaterialPriceSnapshot — every row scoped by
+  `company_id`.
 - **Auth**: `POST /api/auth/register`, `POST /api/auth/login` — BCrypt password
   hashing, JWT issuance (`jjwt`), validated on every request by `JwtAuthFilter`.
 - **CRUD REST APIs**: `/api/products`, `/api/raw-materials`, `/api/vendors`,
-  `/api/warehouses`, `/api/bom`, `/api/inventory`, `/api/purchase-orders`
-  (plus `POST /api/purchase-orders/{id}/advance-status`).
+  `/api/warehouses`, `/api/bom`, `/api/inventory`, `/api/purchase-orders` (plus
+  `POST /api/purchase-orders/{id}/advance-status`), `/api/bills`, `/api/calendar-events`,
+  `/api/notifications`, `/api/team`, `/api/company`, and `/api/market-intelligence`
+  (plus `POST /api/market-intelligence/refresh`).
+- **Role-based authorization**: enforced server-side via `@PreAuthorize` on every
+  mutating endpoint (not just hidden in the frontend) — e.g. only Admins can manage
+  Team Members; Admin/Procurement/Warehouse/Production managers can write to most
+  other modules, Vendor/Viewer roles are read-only. Matches the role matrix in
+  `frontend/src/shared/lib/permissions.ts`.
 - **Multi-tenancy**: every query is scoped to the authenticated user's `companyId`
   from their JWT — verified that a second registered company sees zero rows from the
   first company's data.
 
 ## What's not implemented yet
 
-- Role-based authorization enforcement at the API layer (roles are issued in the JWT
-  and read by the frontend's `permissions.ts`, but the backend doesn't yet reject
-  requests by role — everything authenticated can do everything).
 - Refresh tokens / token expiry handling in the frontend (a 401 from an expired token
   isn't currently caught and turned into a re-login prompt).
 - A couple of forms' dropdown *options* still come from the mock seed arrays instead
   of the real services (see "Known limitation" above) — cosmetic, not a data bug.
+- Receiving a purchase order doesn't automatically update Inventory, and selling a
+  product doesn't automatically deduct its BOM's raw materials — both currently
+  require a separate manual adjustment.

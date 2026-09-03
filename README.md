@@ -40,13 +40,6 @@ Open `http://localhost:5173`, click **Create one** on the login page to register
 company, and you're in — a genuinely empty workspace backed by real MySQL data, not a
 pre-loaded demo.
 
-## Offline / no-setup mode (optional fallback)
-
-Don't want to install MySQL right now? Set `VITE_USE_MOCK_BACKEND=true` in `frontend/.env`
-and restart `npm run dev` — the app falls back to an in-memory mock dataset (a fictional
-Indian bakery company) with any email/password signing you in. Useful for quick UI
-exploration without any setup, but not how the product actually runs.
-
 ## Testing
 
 ```bash

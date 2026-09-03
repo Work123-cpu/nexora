@@ -55,6 +55,9 @@ VITE_AI_SERVICE_URL=http://localhost:8000
 | POST   | `/api/ai/explain`      | Plain-English explanation of a subject + data payload. |
 | POST   | `/api/ai/summarize`    | Short narrative summary of a data payload.           |
 | POST   | `/api/ai/help`         | Contextual help for a given app section.              |
+| POST   | `/api/ai/bom-suggest`  | Suggests Bill of Materials lines, constrained to the caller's real raw-material catalog. |
+| POST   | `/api/ai/material-classify` | Classifies a raw material into a category + reference commodity for Market Intelligence routing. |
+| POST   | `/api/ai/price-indicator` | Qualitative trend estimate (rising/stable/falling) for a material with no real price feed — never a fabricated price. |
 | POST   | `/api/forecast/predict`| Demand forecast for one product — see below.          |
 | GET    | `/api/forecast/status` | Per-category model training readiness.                |
 | GET    | `/health`              | Liveness, Groq config, and forecast readiness.         |
