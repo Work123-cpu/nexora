@@ -35,7 +35,16 @@ public class MarketDataService {
     private static final String API_BASE = "https://www.alphavantage.co/query";
     private static final Duration CACHE_TTL = Duration.ofHours(20);
 
-    public record CommodityDef(String function, String label, String unit, String interval, List<String> keywords) {}
+    /** valueInCents: Alpha Vantage reports COTTON/SUGAR/COFFEE in cents per pound, not dollars per
+     * pound like every other tracked commodity -- confirmed against the live API's own "unit"
+     * field ("cents per pound" vs. "dollar per metric ton"), not assumed. Dividing by 100 at fetch
+     * time keeps `value` in dollars for every commodity, so nothing downstream needs to know about
+     * this quirk. */
+    public record CommodityDef(String function, String label, String unit, String interval, List<String> keywords, boolean valueInCents) {
+        public CommodityDef(String function, String label, String unit, String interval, List<String> keywords) {
+            this(function, label, unit, interval, keywords, false);
+        }
+    }
 
     public static final List<CommodityDef> TRACKED_COMMODITIES = List.of(
             new CommodityDef("WTI", "Crude Oil (WTI)", "USD / barrel", "daily", List.of("crude oil", "petroleum", "wti")),
@@ -46,9 +55,9 @@ public class MarketDataService {
             new CommodityDef("ALUMINUM", "Aluminum", "USD / metric ton", "monthly", List.of("aluminum", "aluminium", "foil")),
             new CommodityDef("WHEAT", "Wheat", "USD / metric ton", "monthly", List.of("wheat", "flour", "atta")),
             new CommodityDef("CORN", "Corn", "USD / metric ton", "monthly", List.of("corn", "maize")),
-            new CommodityDef("COTTON", "Cotton", "USD / lb", "monthly", List.of("cotton", "fabric", "textile", "yarn")),
-            new CommodityDef("SUGAR", "Sugar", "USD / lb", "monthly", List.of("sugar")),
-            new CommodityDef("COFFEE", "Coffee", "USD / lb", "monthly", List.of("coffee"))
+            new CommodityDef("COTTON", "Cotton", "USD / lb", "monthly", List.of("cotton", "fabric", "textile", "yarn"), true),
+            new CommodityDef("SUGAR", "Sugar", "USD / lb", "monthly", List.of("sugar"), true),
+            new CommodityDef("COFFEE", "Coffee", "USD / lb", "monthly", List.of("coffee"), true)
     );
 
     public record MarketMove(CommodityDef def, double value, double changePct, List<String> matchedMaterials) {}
@@ -122,7 +131,10 @@ public class MarketDataService {
             List<Double> values = new ArrayList<>();
             for (JsonNode point : dataNode) {
                 String v = point.path("value").asText();
-                if (!".".equals(v) && !v.isEmpty()) values.add(Double.parseDouble(v));
+                if (!".".equals(v) && !v.isEmpty()) {
+                    double parsed = Double.parseDouble(v);
+                    values.add(def.valueInCents() ? parsed / 100.0 : parsed);
+                }
                 if (values.size() >= 14) break;
             }
             if (values.isEmpty()) return cached;

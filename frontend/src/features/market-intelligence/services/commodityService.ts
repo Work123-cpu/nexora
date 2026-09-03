@@ -16,6 +16,10 @@ export interface CommodityDef {
   unit: string
   interval: 'daily' | 'weekly' | 'monthly'
   keywords: string[]
+  /** Alpha Vantage reports COTTON/SUGAR/COFFEE in cents per pound, not dollars per pound like
+   * every other tracked commodity -- confirmed against the live API's own "unit" field. Values
+   * are divided by 100 at fetch time so `value` is always in dollars, matching everything else. */
+  valueInCents?: boolean
 }
 
 export const TRACKED_COMMODITIES: CommodityDef[] = [
@@ -26,9 +30,9 @@ export const TRACKED_COMMODITIES: CommodityDef[] = [
   { function: 'ALUMINUM', label: 'Aluminum', unit: 'USD / metric ton', interval: 'monthly', keywords: ['aluminum', 'aluminium', 'foil'] },
   { function: 'WHEAT', label: 'Wheat', unit: 'USD / metric ton', interval: 'monthly', keywords: ['wheat', 'flour', 'atta'] },
   { function: 'CORN', label: 'Corn', unit: 'USD / metric ton', interval: 'monthly', keywords: ['corn', 'maize'] },
-  { function: 'COTTON', label: 'Cotton', unit: 'USD / lb', interval: 'monthly', keywords: ['cotton', 'fabric', 'textile', 'yarn'] },
-  { function: 'SUGAR', label: 'Sugar', unit: 'USD / lb', interval: 'monthly', keywords: ['sugar'] },
-  { function: 'COFFEE', label: 'Coffee', unit: 'USD / lb', interval: 'monthly', keywords: ['coffee'] },
+  { function: 'COTTON', label: 'Cotton', unit: 'USD / lb', interval: 'monthly', keywords: ['cotton', 'fabric', 'textile', 'yarn'], valueInCents: true },
+  { function: 'SUGAR', label: 'Sugar', unit: 'USD / lb', interval: 'monthly', keywords: ['sugar'], valueInCents: true },
+  { function: 'COFFEE', label: 'Coffee', unit: 'USD / lb', interval: 'monthly', keywords: ['coffee'], valueInCents: true },
 ]
 
 export interface LiveCommodity {
@@ -93,7 +97,7 @@ async function fetchOne(def: CommodityDef, apiKey: string): Promise<Omit<CacheEn
     const points = data.data.filter((p) => p.value !== '.').slice(0, 14).reverse()
     if (points.length === 0) return null
 
-    const history = points.map((p) => Number(p.value))
+    const history = points.map((p) => (def.valueInCents ? Number(p.value) / 100 : Number(p.value)))
     const value = history[history.length - 1]!
     const prev = history.length > 1 ? history[history.length - 2]! : value
     const changePct = prev ? Number((((value - prev) / prev) * 100).toFixed(2)) : 0
