@@ -41,9 +41,3 @@ class ForecastResponse(BaseModel):
     confidence: float
     generatedAt: str
     isSynthetic: bool = True
-
-
-class ForecastStatusResponse(BaseModel):
-    ready: bool
-    categories: dict[str, bool]
-    trainedAt: str | None

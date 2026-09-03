@@ -24,7 +24,7 @@ export interface CompanyConfig {
 
 const STORAGE_KEY = 'Nexora.company-config'
 
-export const DEFAULT_COMPANY_CONFIG: CompanyConfig = {
+const DEFAULT_COMPANY_CONFIG: CompanyConfig = {
   name: 'Annapurna Foods & Beverages Pvt. Ltd.',
   logoDataUrl: null,
   currencyCode: 'INR',

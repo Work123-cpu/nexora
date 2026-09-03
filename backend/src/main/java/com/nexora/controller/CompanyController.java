@@ -18,11 +18,6 @@ public class CompanyController {
         this.service = service;
     }
 
-    @GetMapping("/settings")
-    public Company getSettings(@AuthenticationPrincipal UserPrincipal principal) {
-        return service.getSettings(principal.companyId());
-    }
-
     @PutMapping("/settings")
     public Company updateSettings(@AuthenticationPrincipal UserPrincipal principal, @Valid @RequestBody CompanySettingsInput input) {
         return service.updateSettings(principal.companyId(), input);

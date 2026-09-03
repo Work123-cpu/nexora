@@ -36,8 +36,8 @@ uvicorn app.main:app --reload --port 8000
 
 On first boot, watch the logs for forecast model training (one line per category, then a summary
 "Forecast models ready (6/6)"). Training runs in a background thread so the server starts
-accepting requests immediately; `/health` and `/api/forecast/status` report readiness in the
-meantime, and `/api/forecast/predict` returns a `503` until a category's model is ready.
+accepting requests immediately; `/health` reports readiness in the meantime, and
+`/api/forecast/predict` returns a `503` until a category's model is ready.
 
 Then point the frontend at it by setting, in `frontend/.env`:
 
@@ -59,7 +59,6 @@ VITE_AI_SERVICE_URL=http://localhost:8000
 | POST   | `/api/ai/material-classify` | Classifies a raw material into a category + reference commodity for Market Intelligence routing. |
 | POST   | `/api/ai/price-indicator` | Qualitative trend estimate (rising/stable/falling) for a material with no real price feed — never a fabricated price. |
 | POST   | `/api/forecast/predict`| Demand forecast for one product — see below.          |
-| GET    | `/api/forecast/status` | Per-category model training readiness.                |
 | GET    | `/health`              | Liveness, Groq config, and forecast readiness.         |
 
 Interactive API docs are available at `http://localhost:8000/docs` once running.

@@ -13,7 +13,7 @@ function authHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
-export class HttpError extends Error {
+class HttpError extends Error {
   status: number
   body?: unknown
 

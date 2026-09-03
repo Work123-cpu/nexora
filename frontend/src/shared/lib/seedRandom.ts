@@ -14,31 +14,7 @@ export function createSeededRandom(seed: number) {
   }
 }
 
-export function seededInt(rand: () => number, min: number, max: number): number {
-  return Math.floor(rand() * (max - min + 1)) + min
-}
-
 export function seededFloat(rand: () => number, min: number, max: number, decimals = 2): number {
   const value = rand() * (max - min) + min
   return Number(value.toFixed(decimals))
-}
-
-export function seededPick<T>(rand: () => number, items: readonly T[]): T {
-  return items[Math.floor(rand() * items.length)]!
-}
-
-export function seededBool(rand: () => number, trueProbability = 0.5): boolean {
-  return rand() < trueProbability
-}
-
-export function daysAgoISO(days: number, from: Date = new Date()): string {
-  const date = new Date(from)
-  date.setDate(date.getDate() - days)
-  return date.toISOString()
-}
-
-export function daysFromNowISO(days: number, from: Date = new Date()): string {
-  const date = new Date(from)
-  date.setDate(date.getDate() + days)
-  return date.toISOString()
 }

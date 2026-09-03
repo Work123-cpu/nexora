@@ -1,4 +1,4 @@
-import type { HTMLAttributes, ReactNode } from 'react'
+import type { HTMLAttributes } from 'react'
 import { cn } from '@/shared/lib/cn'
 import { Tilt3D } from './Tilt3D'
 
@@ -43,21 +43,4 @@ export function CardDescription({ className, ...props }: HTMLAttributes<HTMLPara
 
 export function CardContent({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return <div className={cn('p-5', className)} {...props} />
-}
-
-export function CardFooter({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('flex items-center gap-2 p-5 pt-0', className)} {...props} />
-}
-
-export function CardIcon({ className, children }: { className?: string; children: ReactNode }) {
-  return (
-    <div
-      className={cn(
-        'flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary',
-        className,
-      )}
-    >
-      {children}
-    </div>
-  )
 }

@@ -4,10 +4,10 @@ import type { InventoryItemType } from '@/types/entities/inventory'
 
 /** Used when a real lead time can't be derived — a raw material with no lead time set, or a
  * product with no BOM yet. */
-export const DEFAULT_LEAD_TIME_DAYS = 7
+const DEFAULT_LEAD_TIME_DAYS = 7
 
 /** How many days of stock a suggested reorder quantity should cover. */
-export const REORDER_SUPPLY_DAYS = 30
+const REORDER_SUPPLY_DAYS = 30
 
 /** A raw material's own lead time is direct; a product doesn't carry one, so it's derived from
  * the slowest-to-restock raw material in its own BOM (the real bottleneck on replenishing it). */

@@ -91,11 +91,6 @@ def get_model(category: str) -> TrainedCategoryModel | None:
     return None
 
 
-def is_ready(category: str) -> bool:
-    with _lock:
-        return category in _MODELS
-
-
 def all_ready() -> bool:
     with _lock:
         return len(_MODELS) == len(CATEGORIES)
@@ -104,10 +99,3 @@ def all_ready() -> bool:
 def readiness_by_category() -> dict[str, bool]:
     with _lock:
         return {c: c in _MODELS for c in CATEGORIES}
-
-
-def latest_trained_at() -> str | None:
-    with _lock:
-        if not _MODELS:
-            return None
-        return max(m.trained_at for m in _MODELS.values())
