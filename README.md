@@ -4,13 +4,12 @@ An enterprise-grade procurement, inventory, and supply-chain intelligence platfo
 on a real backend — not a demo. See [`docs/PROJECT_MASTER_PROMPT.md`](docs/PROJECT_MASTER_PROMPT.md)
 and [`docs/01_PROJECT_VISION.md`](docs/01_PROJECT_VISION.md) for the governing spec.
 
-This repository has four pieces:
+This repository has three pieces:
 
 ```
 frontend/     React 19 + TypeScript + Vite — the full application UI
 ai-service/   FastAPI + Groq + scikit-learn/XGBoost — AI chat + real demand forecasting
 backend/      Spring Boot + MySQL — real persistence, JWT auth, multi-tenant data isolation
-desktop/      Electron shell — packages the app as a native Windows desktop launcher
 ```
 
 ## Running it (all three, real data by default)
@@ -40,20 +39,6 @@ desktop/      Electron shell — packages the app as a native Windows desktop la
 Open `http://localhost:5173`, click **Create one** on the login page to register your own
 company, and you're in — a genuinely empty workspace backed by real MySQL data, not a
 pre-loaded demo.
-
-## Running it as a Windows desktop app
-
-Prefer a real taskbar app over a browser tab? See [`desktop/README.md`](desktop/README.md) —
-an Electron shell that starts MySQL/the backend/the AI service for you and opens a native
-window with the Nexora icon:
-
-```bash
-cd frontend && npm run build   # build once before packaging
-cd ../desktop
-npm install
-npm start        # run it directly
-npm run dist      # or build a real Windows installer (.exe) into desktop/release/
-```
 
 ## Offline / no-setup mode (optional fallback)
 

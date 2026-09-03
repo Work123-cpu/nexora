@@ -37,3 +37,6 @@ Thumbs.db
 
 # Local screenshots / scratch
 Screenshots/
+
+# Desktop (Electron) app — untracked by choice, stays local-only
+desktop/
