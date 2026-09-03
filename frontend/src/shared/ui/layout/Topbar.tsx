@@ -9,7 +9,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../DropdownMenu'
 
@@ -46,6 +45,17 @@ export function Topbar({ onMenuClick, unreadNotifications = 0, onOpenCommandPale
           onClick={toggleTheme}
         />
 
+        <IconButton
+          icon={<LogOut className="size-4.5" />}
+          variant="danger"
+          aria-label="Sign out"
+          title="Sign out"
+          onClick={() => {
+            logout()
+            navigate('/login')
+          }}
+        />
+
         <div className="relative">
           <IconButton
             icon={<Bell className="size-4.5" />}
@@ -76,16 +86,6 @@ export function Topbar({ onMenuClick, unreadNotifications = 0, onOpenCommandPale
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate('/app/account/settings')}>
               <Settings className="size-4" /> Settings
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              danger
-              onClick={() => {
-                logout()
-                navigate('/login')
-              }}
-            >
-              <LogOut className="size-4" /> Sign out
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
