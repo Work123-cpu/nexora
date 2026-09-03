@@ -42,6 +42,14 @@ if errorlevel 1 (
     echo.
 )
 
+echo Freeing ports 8081/8000/5173 in case Nexora (or a leftover dev process) is
+echo already running - a stale process squatting on a port silently stops the
+echo real backend/AI-service/frontend from starting up in their own windows.
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\kill-port.ps1" -Port 8081
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\kill-port.ps1" -Port 8000
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\kill-port.ps1" -Port 5173
+echo.
+
 echo Starting backend      ^(Spring Boot, http://localhost:8081^) ...
 start "Nexora Backend" cmd /k "cd /d "%~dp0backend" && "%MVN_CMD%" spring-boot:run"
 
