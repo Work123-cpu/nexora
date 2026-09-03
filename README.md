@@ -2,10 +2,7 @@
 
 An enterprise-grade procurement, inventory, and supply-chain intelligence platform, running
 on a real backend — not a demo. See [`docs/PROJECT_MASTER_PROMPT.md`](docs/PROJECT_MASTER_PROMPT.md)
-and [`docs/01_PROJECT_VISION.md`](docs/01_PROJECT_VISION.md) for the governing spec,
-[`PROJECT_STATUS.md`](PROJECT_STATUS.md) for the original 19-module milestone, and
-[`PROJECT_ROADMAP.md`](PROJECT_ROADMAP.md) for everything built since (real backend, vendor
-portal, bulk import, live AI, and more).
+and [`docs/01_PROJECT_VISION.md`](docs/01_PROJECT_VISION.md) for the governing spec.
 
 This repository has four pieces:
 
@@ -73,13 +70,12 @@ npm test          # unit tests (vitest) — recommendation engine, health engine
 npm run test:e2e  # end-to-end tests (Playwright) — needs the dev server + backend running
 ```
 
-## What's implemented vs. what's next
+## Quick-start scripts
 
-- [`PROJECT_STATUS.md`](PROJECT_STATUS.md) — the original 19-module milestone (all frontend
-  modules, real ML forecasting, AI chat integration).
-- [`PROJECT_ROADMAP.md`](PROJECT_ROADMAP.md) — everything built after that: full CRUD for
-  every catalog entity wired to the real backend, bulk CSV import, a real Setup Wizard +
-  registration flow, a Company Settings page with live currency switching, a Vendor Portal,
-  a command palette, PDF export, live Groq AI, and the real Spring Boot + MySQL backend as
-  the default data source — plus what's still explicitly out of scope by choice (real
-  billing/notifications integrations, which need third-party accounts only you can create).
+Instead of running each piece manually, from the repo root:
+
+- `run-nexora.cmd` — starts backend + AI service + frontend locally in one go.
+- `run-nexora-demo.cmd` — additionally tunnels the running app so someone off your network
+  can open a link and use it live, no setup on their end.
+- `run-nexora-collab.cmd` — tunnels just your backend + AI service so a teammate can run
+  their own frontend against your live data (see [`docs/FRIEND_SETUP.md`](docs/FRIEND_SETUP.md)).
