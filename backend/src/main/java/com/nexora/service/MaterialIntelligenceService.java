@@ -320,7 +320,9 @@ public class MaterialIntelligenceService {
     }
 
     /** Null (never a fabricated %) until a real snapshot from at least that many days back has
-     * actually accumulated — no synthetic backfill. */
+     * actually accumulated — no synthetic backfill. Also null across a unit change (e.g. a price
+     * source's reported unit was corrected, or a material's routing changed) — comparing raw
+     * numbers on different scales produces a meaningless swing, not a real trend. */
     private Double computeChangePct(List<MaterialPriceSnapshot> historyDesc, int daysAgo) {
         MaterialPriceSnapshot latest = historyDesc.get(0);
         if (latest.getPrice() == null) return null;
@@ -331,6 +333,7 @@ public class MaterialIntelligenceService {
                 .findFirst()
                 .orElse(null);
         if (reference == null || reference == latest) return null;
+        if (reference.getUnit() == null || !reference.getUnit().equals(latest.getUnit())) return null;
 
         double refPrice = reference.getPrice().doubleValue();
         if (refPrice == 0) return null;
