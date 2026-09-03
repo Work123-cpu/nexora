@@ -3,12 +3,12 @@ setlocal
 
 :: Starts Nexora AND exposes it via temporary public Cloudflare Tunnel URLs, so you can share
 :: a working link with someone who isn't on your network (a friend, a phone off wifi, etc.).
-:: This is a separate, opt-in script from run-nexora.cmd on purpose — your normal local runs
+:: This is a separate, opt-in script from run-nexora.cmd on purpose - your normal local runs
 :: never touch the public internet unless you specifically run this file.
 ::
 :: Requires: everything run-nexora.cmd requires, plus `cloudflared` on your PATH
 :: (https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/).
-:: No Cloudflare account needed — this uses free, anonymous "quick tunnels".
+:: No Cloudflare account needed - this uses free, anonymous "quick tunnels".
 ::
 :: The tunnel URLs are random and different every time you run this, so this script walks you
 :: through two copy/paste steps instead of guessing them. Everything it edits is reverted back
@@ -16,7 +16,7 @@ setlocal
 :: this window closes.
 
 echo ============================================
-echo   Nexora - Demo Mode (public tunnel)
+echo Nexora - Demo Mode (public tunnel)
 echo ============================================
 echo.
 echo This exposes your local Nexora to the public internet via a temporary
@@ -24,20 +24,20 @@ echo Cloudflare Tunnel, until you close the tunnel windows. Anyone with the
 echo link can reach your real local database. Only use this for a live demo.
 echo.
 echo If Nexora is already running (e.g. you started it with run-nexora.cmd),
-echo this script will stop and restart it — that's expected, it needs a fresh
+echo this script will stop and restart it - that's expected, it needs a fresh
 echo backend/frontend so the tunnel config actually takes effect.
 echo.
 pause
 
 where cloudflared >nul 2>&1
 if errorlevel 1 (
-    echo.
-    echo ****************************************************************
-    echo   cloudflared isn't on your PATH. Install it from:
-    echo   https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/
-    echo ****************************************************************
-    pause
-    exit /b 1
+ echo.
+ echo ****************************************************************
+ echo cloudflared isn't on your PATH. Install it from:
+ echo https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/
+ echo ****************************************************************
+ pause
+ exit /b 1
 )
 
 set "MVN_CMD=mvn"
@@ -45,16 +45,16 @@ if exist "%~dp0.tools\apache-maven-3.9.9\bin\mvn.cmd" set "MVN_CMD=%~dp0.tools\a
 
 net start | findstr /i "MySQL" >nul
 if errorlevel 1 (
-    echo MySQL is not running — attempting to start it...
-    net start MySQL80 >nul 2>&1
-    net start | findstr /i "MySQL" >nul
-    if errorlevel 1 (
-        echo.
-        echo   MySQL is NOT running and could not be started automatically.
-        echo   Start it manually (services.msc -^> MySQL80), then press any key.
-        echo.
-        pause
-    )
+ echo MySQL is not running - attempting to start it...
+ net start MySQL80 >nul 2>&1
+ net start | findstr /i "MySQL" >nul
+ if errorlevel 1 (
+ echo.
+ echo MySQL is NOT running and could not be started automatically.
+ echo Start it manually via services.msc -^> MySQL80, then press any key.
+ echo.
+ pause
+ )
 )
 
 echo.
@@ -75,10 +75,10 @@ start "Nexora Tunnel - Backend" cmd /k "cloudflared tunnel --url http://localhos
 
 echo.
 echo ============================================
-echo   Look at the "Nexora Tunnel - Backend" window that just opened.
-echo   Wait for a line like:
-echo     https://some-random-words.trycloudflare.com
-echo   Copy that URL and paste it below, then press Enter.
+echo Look at the "Nexora Tunnel - Backend" window that just opened.
+echo Wait for a line like:
+echo https://some-random-words.trycloudflare.com
+echo Copy that URL and paste it below, then press Enter.
 echo ============================================
 set /p BACKEND_TUNNEL_URL="Backend tunnel URL: "
 
@@ -94,9 +94,9 @@ start "Nexora Tunnel - Frontend" cmd /k "cloudflared tunnel --url http://localho
 
 echo.
 echo ============================================
-echo   Look at the "Nexora Tunnel - Frontend" window that just opened.
-echo   Copy its https://....trycloudflare.com URL and paste it below —
-echo   this is the link you'll share.
+echo Look at the "Nexora Tunnel - Frontend" window that just opened.
+echo Copy its https://....trycloudflare.com URL and paste it below - 
+echo this is the link you'll share.
 echo ============================================
 set /p FRONTEND_TUNNEL_URL="Frontend tunnel URL: "
 
@@ -113,13 +113,13 @@ start "Nexora Frontend" cmd /k "cd /d "%~dp0frontend" && npm run dev"
 
 echo.
 echo ============================================
-echo   Share this link:
+echo Share this link:
 echo.
-echo   %FRONTEND_TUNNEL_URL%
+echo %FRONTEND_TUNNEL_URL%
 echo.
-echo   Give the backend ~15s to finish restarting before it's usable.
-echo   AI features (chat, BOM suggestions, forecast) run in mock mode for
-echo   this demo — the ai-service isn't tunneled.
+echo Give the backend ~15s to finish restarting before it's usable.
+echo AI features (chat, BOM suggestions, forecast) run in mock mode for
+echo this demo - the ai-service isn't tunneled.
 echo ============================================
 echo.
 echo When you're done: close every "Nexora ..." and "Nexora Tunnel - ..."
@@ -135,6 +135,6 @@ taskkill /IM cloudflared.exe /T /F >nul 2>&1
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\demo-tunnel-revert.ps1"
 
 echo.
-echo Reverted — Nexora and its tunnels are fully stopped, and the config is back to
+echo Reverted - Nexora and its tunnels are fully stopped, and the config is back to
 echo normal local-only settings. Run run-nexora.cmd next time for regular local development.
 pause
