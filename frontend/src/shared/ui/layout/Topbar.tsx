@@ -63,10 +63,10 @@ export function Topbar({ onMenuClick, unreadNotifications = 0, onOpenCommandPale
         <DropdownMenu>
           <DropdownMenuTrigger>
             <div className="flex items-center gap-2 rounded-xl py-1 pl-1 pr-2 transition-colors hover:bg-surface-elevated">
-              <Avatar name={session?.user.name ?? 'Guest User'} size="sm" />
+              <Avatar name={session?.user?.name ?? 'Guest User'} size="sm" />
               <div className="hidden text-left sm:block">
-                <p className="text-xs font-semibold leading-tight text-foreground">{session?.user.name ?? 'Guest'}</p>
-                <p className="text-[11px] leading-tight text-muted-foreground">{session?.user.jobTitle ?? 'Viewer'}</p>
+                <p className="text-xs font-semibold leading-tight text-foreground">{session?.user?.name ?? 'Guest'}</p>
+                <p className="text-[11px] leading-tight text-muted-foreground">{session?.user?.jobTitle ?? 'Viewer'}</p>
               </div>
             </div>
           </DropdownMenuTrigger>

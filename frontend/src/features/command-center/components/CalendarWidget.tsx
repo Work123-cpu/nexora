@@ -29,7 +29,7 @@ export function CalendarWidget() {
     .slice(0, 5)
 
   return (
-    <Card>
+    <Card interactive>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <CalendarDays className="size-4" /> Business Calendar

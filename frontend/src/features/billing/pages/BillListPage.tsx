@@ -4,6 +4,7 @@ import { PlusCircle, Receipt, TrendingUp, Upload } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/layout/PageHeader'
 import { Button } from '@/shared/ui/Button'
 import { SearchInput } from '@/shared/ui/SearchInput'
+import { FilterBar, FilterChip } from '@/shared/ui/FilterBar'
 import { DataTable, type DataTableColumn } from '@/shared/ui/DataTable'
 import { Pagination } from '@/shared/ui/Pagination'
 import { StatCard } from '@/shared/ui/StatCard'
@@ -16,7 +17,7 @@ import { usePagination } from '@/shared/hooks/usePagination'
 import { formatCompactCurrency, formatDate, formatNumber } from '@/shared/lib/formatters'
 import { useProducts } from '@/features/products/hooks/useProducts'
 import { useWarehouses } from '@/features/warehouse/hooks/useWarehouses'
-import type { Bill } from '@/types/entities/bill'
+import type { Bill, BillStatus } from '@/types/entities/bill'
 import { useBills, useCreateBill } from '../hooks/useBills'
 import type { BillInput } from '../services/billService'
 import { mapSalesHistoryCsvRow, SALES_HISTORY_CSV_TEMPLATE } from '../lib/salesHistoryCsvMapper'
@@ -24,6 +25,7 @@ import { mapSalesHistoryCsvRow, SALES_HISTORY_CSV_TEMPLATE } from '../lib/salesH
 export function BillListPage() {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
+  const [status, setStatus] = useState<BillStatus | undefined>(undefined)
   const [importOpen, setImportOpen] = useState(false)
   const [importedCount, setImportedCount] = useState<number | null>(null)
   const [sortBy, setSortBy] = useState<string | undefined>('billNumber')
@@ -32,7 +34,7 @@ export function BillListPage() {
   const debouncedSearch = useDebounce(search)
   const createBill = useCreateBill()
 
-  const { data, isLoading } = useBills({ page, pageSize, search: debouncedSearch, sortBy, sortDir })
+  const { data, isLoading } = useBills({ page, pageSize, search: debouncedSearch, status, sortBy, sortDir })
 
   const handleSort = (key: string) => {
     if (sortBy === key) setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
@@ -97,8 +99,19 @@ export function BillListPage() {
         <StatCard label="Revenue Billed" value={formatCompactCurrency(totalRevenue)} tone="info" />
       </div>
 
-      <div className="mb-4">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <SearchInput value={search} onChange={setSearch} placeholder="Search by bill number or customer…" className="sm:max-w-sm" />
+        <FilterBar>
+          <FilterChip active={!status} onClick={() => setStatus(undefined)}>
+            All statuses
+          </FilterChip>
+          <FilterChip active={status === 'completed'} onClick={() => setStatus('completed')}>
+            Completed
+          </FilterChip>
+          <FilterChip active={status === 'cancelled'} onClick={() => setStatus('cancelled')}>
+            Cancelled
+          </FilterChip>
+        </FilterBar>
       </div>
 
       <DataTable
@@ -150,7 +163,7 @@ export function BillListPage() {
         }
       >
         <p className="text-sm text-muted-foreground">
-          A product needs at least 28 days of real sales history before its forecast switches from a category estimate to one based on your
+          A product needs at least 10 days of real sales history before its forecast switches from a category estimate to one based on your
           own data.
         </p>
       </Dialog>

@@ -66,7 +66,7 @@ export function VendorDetailPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
+        <Card interactive className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Building2 className="size-4" /> Vendor Details
@@ -129,7 +129,7 @@ export function VendorDetailPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card interactive>
           <CardHeader>
             <CardTitle>Recent Purchase Orders</CardTitle>
           </CardHeader>

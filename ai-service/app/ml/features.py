@@ -19,9 +19,12 @@ FEATURE_COLUMNS = [
     "rolling_mean_28",
 ]
 
-# Longest lookback any feature needs — callers must seed the rollout buffer with at least this
-# many trailing days of real/predicted history before requesting the next day's features.
-MIN_HISTORY_WINDOW = 28
+# Real-history gate for unlocking a per-product forecast (vs. the synthetic category fallback).
+# Lowered from 28 for local testing so a forecast is reachable after ~10 days of bills instead of
+# ~4 weeks. Below 28 real days, rolling_mean_28 (see build_inference_row) is computed over fewer
+# days than the trained model saw during training — an accepted accuracy tradeoff for faster
+# testing, not something to ship at this value.
+MIN_HISTORY_WINDOW = 10
 
 
 def _date_features(d: date) -> dict:

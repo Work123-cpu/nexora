@@ -68,7 +68,7 @@ export function RawMaterialDetailPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
+        <Card interactive className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Boxes className="size-4" /> Material Details
@@ -145,7 +145,7 @@ export function RawMaterialDetailPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card interactive>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Truck className="size-4" /> Primary Vendor

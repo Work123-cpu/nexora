@@ -614,7 +614,7 @@ ipcMain.handle('nexora:save-groq-key', (_event, key) => {
       ? fs.readFileSync(AI_ENV_FILE, 'utf8')
       : fs.existsSync(AI_ENV_EXAMPLE)
         ? fs.readFileSync(AI_ENV_EXAMPLE, 'utf8')
-        : 'GROQ_API_KEY=\nGROQ_MODEL=llama-3.3-70b-versatile\nALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5510,http://localhost:5510\nHOST=0.0.0.0\nPORT=8000\nLOG_LEVEL=INFO\n'
+        : 'GROQ_API_KEY=\nGROQ_MODEL=openai/gpt-oss-120b\nALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5510,http://localhost:5510\nHOST=0.0.0.0\nPORT=8000\nLOG_LEVEL=INFO\n'
 
     contents = contents.includes('GROQ_API_KEY=')
       ? contents.replace(/GROQ_API_KEY=.*/g, `GROQ_API_KEY=${key}`)

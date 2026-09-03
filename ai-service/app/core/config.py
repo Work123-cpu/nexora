@@ -14,7 +14,9 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     groq_api_key: str | None = None
-    groq_model: str = "llama-3.3-70b-versatile"
+    # llama-3.3-70b-versatile was removed from Groq's lineup (as of 2026-08-24, calling it 404s
+    # with model_not_found) — openai/gpt-oss-120b is the current closest capability-tier model.
+    groq_model: str = "openai/gpt-oss-120b"
 
     allowed_origins: str = "http://localhost:5173"
 

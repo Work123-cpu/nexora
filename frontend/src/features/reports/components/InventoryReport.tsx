@@ -1,5 +1,6 @@
 import { PageHeader } from '@/shared/ui/layout/PageHeader'
 import { StatCard } from '@/shared/ui/StatCard'
+import { Reveal } from '@/shared/ui/Reveal'
 import { BarChartCard } from '@/shared/ui/charts/BarChartCard'
 import { DataTable, type DataTableColumn } from '@/shared/ui/DataTable'
 import { Badge } from '@/shared/ui/Badge'
@@ -57,18 +58,24 @@ export function InventoryReport() {
         }
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="Total Inventory Value" value={formatCompactCurrency(totalValue)} tone="primary" />
-        <StatCard label="Low Stock Items" value={formatNumber(lowStock.length)} tone="warning" />
-        <StatCard label="Critical Items" value={formatNumber(critical.length)} tone="danger" />
-      </div>
+      <Reveal>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <StatCard label="Total Inventory Value" value={formatCompactCurrency(totalValue)} tone="primary" />
+          <StatCard label="Low Stock Items" value={formatNumber(lowStock.length)} tone="warning" />
+          <StatCard label="Critical Items" value={formatNumber(critical.length)} tone="danger" />
+        </div>
+      </Reveal>
 
-      <BarChartCard title="Inventory Value by Category" data={valueByCategory} xKey="category" bars={[{ key: 'value', label: 'Value (₹)' }]} />
+      <Reveal delay={0.05}>
+        <BarChartCard title="Inventory Value by Category" data={valueByCategory} xKey="category" bars={[{ key: 'value', label: 'Value (₹)' }]} />
+      </Reveal>
 
-      <div>
-        <h2 className="mb-3 text-sm font-semibold text-foreground">Items Requiring Attention</h2>
-        <DataTable columns={columns} data={lowStock} rowKey={(i) => i.id} emptyTitle="No low-stock items" />
-      </div>
+      <Reveal delay={0.1}>
+        <div>
+          <h2 className="mb-3 text-sm font-semibold text-foreground">Items Requiring Attention</h2>
+          <DataTable columns={columns} data={lowStock} rowKey={(i) => i.id} emptyTitle="No low-stock items" />
+        </div>
+      </Reveal>
     </div>
   )
 }

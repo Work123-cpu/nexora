@@ -213,8 +213,13 @@ public class MaterialIntelligenceService {
     }
 
     private void saveIndicatorSnapshot(RawMaterial material, RawMaterialIntelligence intel, LocalDate today) {
+        String previousTrend = snapshotRepo.findByRawMaterialIdOrderBySnapshotDateDesc(material.getId()).stream()
+                .findFirst()
+                .map(s -> s.getTrend().getValue())
+                .orElse(null);
+
         Optional<AiServiceClient.IndicatorResult> indicator = aiServiceClient.indicator(
-                material.getName(), intel.getCategory().getValue(), intel.getReferenceCommodity());
+                material.getName(), intel.getCategory().getValue(), intel.getReferenceCommodity(), previousTrend);
         if (indicator.isEmpty()) return; // ai-service down — skip today's snapshot, retry tomorrow
 
         MaterialPriceSnapshot snapshot = new MaterialPriceSnapshot();

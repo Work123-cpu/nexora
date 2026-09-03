@@ -72,7 +72,7 @@ export function WarehouseDetailPage() {
       />
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <Card>
+        <Card interactive>
           <CardHeader>
             <CardTitle>Capacity</CardTitle>
           </CardHeader>
@@ -84,7 +84,7 @@ export function WarehouseDetailPage() {
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-2">
+        <Card interactive className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <WarehouseIcon className="size-4" /> Warehouse Details

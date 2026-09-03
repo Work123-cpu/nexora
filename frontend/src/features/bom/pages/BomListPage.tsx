@@ -1,13 +1,14 @@
 import { useNavigate } from 'react-router-dom'
-import { ListTree, Pencil, PlusCircle, Trash2 } from 'lucide-react'
+import { Boxes, IndianRupee, ListTree, Pencil, PlusCircle, Trash2 } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/layout/PageHeader'
 import { Button } from '@/shared/ui/Button'
+import { StatCard } from '@/shared/ui/StatCard'
 import { SearchInput } from '@/shared/ui/SearchInput'
 import { DataTable, type DataTableColumn } from '@/shared/ui/DataTable'
 import { IconButton } from '@/shared/ui/IconButton'
 import { Badge } from '@/shared/ui/Badge'
 import { useDebounce } from '@/shared/hooks/useDebounce'
-import { formatCurrency, formatDate } from '@/shared/lib/formatters'
+import { formatCurrency, formatDate, formatNumber } from '@/shared/lib/formatters'
 import { useBOMs, useDeleteBOM } from '../hooks/useBOM'
 import { calculateTotalUnitCost } from '../lib/calculateBomCost'
 import { useRawMaterials } from '@/features/raw-materials/hooks/useRawMaterials'
@@ -38,6 +39,12 @@ export function BomListPage() {
   }
   const { data: rawMaterialsData } = useRawMaterials({ pageSize: 10000 })
   const rawMaterials = rawMaterialsData?.items ?? []
+
+  // Stat cards summarize every BOM, not just the current page — a separate, unfiltered fetch.
+  const { data: allBomsData } = useBOMs({ pageSize: 10000 })
+  const allBoms = allBomsData?.items ?? []
+  const avgMaterialsPerBom = allBoms.length > 0 ? allBoms.reduce((sum, b) => sum + b.materials.length, 0) / allBoms.length : 0
+  const avgUnitCost = allBoms.length > 0 ? allBoms.reduce((sum, b) => sum + calculateTotalUnitCost(b, rawMaterials), 0) / allBoms.length : 0
   const { recommendations: missingBomSuggestions } = useRecommendationsByCategory('production-plan')
   const deleteBom = useDeleteBOM()
   const { toast } = useToast()
@@ -91,6 +98,12 @@ export function BomListPage() {
           </RoleGuard>
         }
       />
+
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatCard label="Total BOMs" value={formatNumber(allBoms.length)} icon={<ListTree className="size-5" />} tone="primary" />
+        <StatCard label="Avg Materials per BOM" value={avgMaterialsPerBom.toFixed(1)} icon={<Boxes className="size-5" />} tone="info" />
+        <StatCard label="Avg Unit Cost" value={formatCurrency(avgUnitCost, true)} icon={<IndianRupee className="size-5" />} tone="success" />
+      </div>
 
       {missingBomSuggestions.length > 0 && (
         <div className="mb-6">

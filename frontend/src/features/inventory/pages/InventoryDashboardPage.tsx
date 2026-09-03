@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, Plus, Upload } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/layout/PageHeader'
 import { Button } from '@/shared/ui/Button'
+import { Reveal } from '@/shared/ui/Reveal'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/shared/ui/Tabs'
 import { BulkImportDialog } from '@/shared/ui/BulkImportDialog'
 import { useToast } from '@/shared/ui/Toast'
@@ -105,38 +106,52 @@ export function InventoryDashboardPage() {
         </TabsList>
 
         <TabsContent value="overview" className="mt-6 space-y-6">
-          <InventoryStatCards />
+          <Reveal>
+            <InventoryStatCards />
+          </Reveal>
 
-          <div>
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-foreground">Low Stock Items</h2>
-              <Link to="/app/procurement/recommendations" className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
-                View procurement recommendations <ArrowRight className="size-3" />
-              </Link>
+          <Reveal delay={0.05}>
+            <div>
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-foreground">Low Stock Items</h2>
+                <Link to="/app/procurement/recommendations" className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                  View procurement recommendations <ArrowRight className="size-3" />
+                </Link>
+              </div>
+              <LowStockCards />
             </div>
-            <LowStockCards />
-          </div>
+          </Reveal>
 
-          <div>
-            <h2 className="mb-3 text-sm font-semibold text-foreground">Warehouses</h2>
-            <WarehouseCardsRow />
-          </div>
+          <Reveal delay={0.1}>
+            <div>
+              <h2 className="mb-3 text-sm font-semibold text-foreground">Warehouses</h2>
+              <WarehouseCardsRow />
+            </div>
+          </Reveal>
 
-          <StockMovementTimeline />
+          <Reveal delay={0.1}>
+            <StockMovementTimeline />
+          </Reveal>
 
-          <div>
-            <h2 className="mb-3 text-sm font-semibold text-foreground">Product Stock</h2>
-            <InventoryItemsTable itemType="product" />
-          </div>
+          <Reveal delay={0.15}>
+            <div>
+              <h2 className="mb-3 text-sm font-semibold text-foreground">Product Stock</h2>
+              <InventoryItemsTable itemType="product" />
+            </div>
+          </Reveal>
 
-          <div>
-            <h2 className="mb-3 text-sm font-semibold text-foreground">Raw Material Stock</h2>
-            <InventoryItemsTable itemType="rawMaterial" />
-          </div>
+          <Reveal delay={0.15}>
+            <div>
+              <h2 className="mb-3 text-sm font-semibold text-foreground">Raw Material Stock</h2>
+              <InventoryItemsTable itemType="rawMaterial" />
+            </div>
+          </Reveal>
         </TabsContent>
 
         <TabsContent value="trend" className="mt-6">
-          <InventoryTrendsChart />
+          <Reveal>
+            <InventoryTrendsChart />
+          </Reveal>
         </TabsContent>
       </Tabs>
 

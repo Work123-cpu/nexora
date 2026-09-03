@@ -114,7 +114,7 @@ export function TeamMembersPage() {
         <Card>
           <CardContent className="divide-y divide-border p-0">
             {members.map((member) => {
-              const isSelf = member.id === session?.user.id
+              const isSelf = member.id === session?.user?.id
               return (
                 <div key={member.id} className="flex flex-wrap items-center justify-between gap-4 p-4">
                   <div className="flex items-center gap-3">

@@ -14,7 +14,7 @@ export function HeroBanner() {
   const { session } = useAuth()
   const show3D = !isMobile && !reducedMotion
 
-  const firstName = session?.user.name.split(' ')[0] ?? 'there'
+  const firstName = session?.user?.name.split(' ')[0] ?? 'there'
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
 

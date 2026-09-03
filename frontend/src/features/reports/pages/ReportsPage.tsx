@@ -1,4 +1,5 @@
 import { useParams } from 'react-router-dom'
+import { AnimatePresence, motion } from 'framer-motion'
 import { ReportNav } from '../components/ReportNav'
 import { BusinessReport } from '../components/BusinessReport'
 import { InventoryReport } from '../components/InventoryReport'
@@ -8,15 +9,26 @@ import { SupplierReport } from '../components/SupplierReport'
 
 export function ReportsPage() {
   const { reportType } = useParams<{ reportType: string }>()
+  const activeReport = reportType ?? 'business'
 
   return (
     <div>
       <ReportNav />
-      {reportType === 'inventory' && <InventoryReport />}
-      {reportType === 'procurement' && <ProcurementReport />}
-      {reportType === 'forecast' && <ForecastReport />}
-      {reportType === 'supplier' && <SupplierReport />}
-      {(reportType === 'business' || !reportType) && <BusinessReport />}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={activeReport}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.2, ease: 'easeOut' }}
+        >
+          {activeReport === 'inventory' && <InventoryReport />}
+          {activeReport === 'procurement' && <ProcurementReport />}
+          {activeReport === 'forecast' && <ForecastReport />}
+          {activeReport === 'supplier' && <SupplierReport />}
+          {activeReport === 'business' && <BusinessReport />}
+        </motion.div>
+      </AnimatePresence>
     </div>
   )
 }

@@ -104,7 +104,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm"
+            className="absolute inset-0 bg-overlay/50 backdrop-blur-sm"
             onClick={onClose}
           />
           <motion.div

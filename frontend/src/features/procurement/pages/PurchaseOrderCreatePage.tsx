@@ -84,7 +84,7 @@ export function PurchaseOrderCreatePage() {
       vendorId,
       items: lineItems,
       expectedDeliveryDate: new Date(expectedDeliveryDate).toISOString(),
-      createdBy: session?.user.name ?? 'Unknown user',
+      createdBy: session?.user?.name ?? 'Unknown user',
       sourceRecommendationId: prefillMaterialId ? `rec-reorder-${prefillMaterialId}` : undefined,
     })
     toast({ title: 'Purchase order created', description: `${po.poNumber} has been submitted for approval.`, tone: 'success' })

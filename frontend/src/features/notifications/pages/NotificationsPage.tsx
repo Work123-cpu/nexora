@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Bell, CheckCheck, Inbox } from 'lucide-react'
+import { AlertTriangle, Bell, CheckCheck, Inbox, MailWarning } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/layout/PageHeader'
 import { Button } from '@/shared/ui/Button'
+import { StatCard } from '@/shared/ui/StatCard'
 import { Card, CardContent } from '@/shared/ui/Card'
 import { Badge, type BadgeTone } from '@/shared/ui/Badge'
 import { FilterBar, FilterChip } from '@/shared/ui/FilterBar'
@@ -21,6 +22,8 @@ export function NotificationsPage() {
   const [explaining, setExplaining] = useState<string | null>(null)
 
   const filtered = notifications.filter((n) => !priorityFilter || n.priority === priorityFilter)
+  const criticalCount = notifications.filter((n) => n.priority === 'critical').length
+  const highCount = notifications.filter((n) => n.priority === 'high').length
 
   // Grounds the LLM in this alert's real numbers (already embedded in message/category/priority,
   // sourced from live backend inventory/PO/vendor data) rather than asking it to invent context.
@@ -47,6 +50,12 @@ export function NotificationsPage() {
           </Button>
         }
       />
+
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatCard label="Unread" value={String(unread.length)} icon={<MailWarning className="size-5" />} tone="primary" />
+        <StatCard label="Critical" value={String(criticalCount)} icon={<AlertTriangle className="size-5" />} tone="danger" />
+        <StatCard label="High Priority" value={String(highCount)} icon={<Bell className="size-5" />} tone="warning" />
+      </div>
 
       {unread.length > 0 && (
         <div className="mb-6">

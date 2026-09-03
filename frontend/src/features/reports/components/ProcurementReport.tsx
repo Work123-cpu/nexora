@@ -1,5 +1,6 @@
 import { PageHeader } from '@/shared/ui/layout/PageHeader'
 import { StatCard } from '@/shared/ui/StatCard'
+import { Reveal } from '@/shared/ui/Reveal'
 import { BarChartCard } from '@/shared/ui/charts/BarChartCard'
 import { PieChartCard } from '@/shared/ui/charts/PieChartCard'
 import { DataTable, type DataTableColumn } from '@/shared/ui/DataTable'
@@ -57,21 +58,27 @@ export function ProcurementReport() {
         }
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="Total Spend" value={formatCompactCurrency(totalSpend)} tone="primary" />
-        <StatCard label="Total Orders" value={formatNumber(purchaseOrders.length)} tone="info" />
-        <StatCard label="Average Order Value" value={formatCompactCurrency(avgOrderValue)} tone="success" />
-      </div>
+      <Reveal>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <StatCard label="Total Spend" value={formatCompactCurrency(totalSpend)} tone="primary" />
+          <StatCard label="Total Orders" value={formatNumber(purchaseOrders.length)} tone="info" />
+          <StatCard label="Average Order Value" value={formatCompactCurrency(avgOrderValue)} tone="success" />
+        </div>
+      </Reveal>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <BarChartCard title="Top Vendors by Spend" data={topVendors} xKey="vendor" bars={[{ key: 'spend', label: 'Spend (₹)' }]} className="lg:col-span-2" />
-        <PieChartCard title="Orders by Status" data={statusBreakdown} />
-      </div>
+      <Reveal delay={0.05}>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <BarChartCard title="Top Vendors by Spend" data={topVendors} xKey="vendor" bars={[{ key: 'spend', label: 'Spend (₹)' }]} className="lg:col-span-2" />
+          <PieChartCard title="Orders by Status" data={statusBreakdown} />
+        </div>
+      </Reveal>
 
-      <div>
-        <h2 className="mb-3 text-sm font-semibold text-foreground">Recent Purchase Orders</h2>
-        <DataTable columns={columns} data={purchaseOrders.slice(0, 10)} rowKey={(po) => po.id} />
-      </div>
+      <Reveal delay={0.1}>
+        <div>
+          <h2 className="mb-3 text-sm font-semibold text-foreground">Recent Purchase Orders</h2>
+          <DataTable columns={columns} data={purchaseOrders.slice(0, 10)} rowKey={(po) => po.id} />
+        </div>
+      </Reveal>
     </div>
   )
 }

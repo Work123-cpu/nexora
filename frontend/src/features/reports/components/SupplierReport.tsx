@@ -1,5 +1,6 @@
 import { PageHeader } from '@/shared/ui/layout/PageHeader'
 import { StatCard } from '@/shared/ui/StatCard'
+import { Reveal } from '@/shared/ui/Reveal'
 import { BarChartCard } from '@/shared/ui/charts/BarChartCard'
 import { DataTable, type DataTableColumn } from '@/shared/ui/DataTable'
 import { Badge } from '@/shared/ui/Badge'
@@ -44,27 +45,33 @@ export function SupplierReport() {
         }
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="Avg On-Time Delivery" value={`${avgOnTime.toFixed(0)}%`} tone="primary" />
-        <StatCard label="Avg Quality Score" value={`${avgQuality.toFixed(0)}%`} tone="success" />
-        <StatCard label="Vendors Under Review" value={formatNumber(underReview)} tone="warning" />
-      </div>
+      <Reveal>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <StatCard label="Avg On-Time Delivery" value={`${avgOnTime.toFixed(0)}%`} tone="primary" />
+          <StatCard label="Avg Quality Score" value={`${avgQuality.toFixed(0)}%`} tone="success" />
+          <StatCard label="Vendors Under Review" value={formatNumber(underReview)} tone="warning" />
+        </div>
+      </Reveal>
 
-      <BarChartCard
-        title="Top Performing Vendors"
-        description="On-time delivery vs quality score"
-        data={chartData}
-        xKey="vendor"
-        bars={[
-          { key: 'onTime', label: 'On-Time %', colorIndex: 0 },
-          { key: 'quality', label: 'Quality %', colorIndex: 1 },
-        ]}
-      />
+      <Reveal delay={0.05}>
+        <BarChartCard
+          title="Top Performing Vendors"
+          description="On-time delivery vs quality score"
+          data={chartData}
+          xKey="vendor"
+          bars={[
+            { key: 'onTime', label: 'On-Time %', colorIndex: 0 },
+            { key: 'quality', label: 'Quality %', colorIndex: 1 },
+          ]}
+        />
+      </Reveal>
 
-      <div>
-        <h2 className="mb-3 text-sm font-semibold text-foreground">All Vendors</h2>
-        <DataTable columns={columns} data={vendors} rowKey={(v) => v.id} />
-      </div>
+      <Reveal delay={0.1}>
+        <div>
+          <h2 className="mb-3 text-sm font-semibold text-foreground">All Vendors</h2>
+          <DataTable columns={columns} data={vendors} rowKey={(v) => v.id} />
+        </div>
+      </Reveal>
     </div>
   )
 }

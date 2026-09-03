@@ -14,7 +14,7 @@ export function PrioritiesAndAlerts() {
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <Card>
+      <Card interactive>
         <CardHeader>
           <CardTitle>Today's Priorities</CardTitle>
         </CardHeader>
@@ -43,7 +43,7 @@ export function PrioritiesAndAlerts() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card interactive>
         <CardHeader>
           <CardTitle>Critical Alerts</CardTitle>
         </CardHeader>

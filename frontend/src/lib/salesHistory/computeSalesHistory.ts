@@ -10,7 +10,7 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000
  * calendar days have elapsed since this product's first bill — matching the ai-service's
  * MIN_HISTORY_WINDOW, so a brand-new product honestly falls back to the category estimate
  * instead of seeding a forecast from a misleadingly short real window. */
-export function computeDailySalesHistory(bills: Bill[], productId: string, days = 28): number[] | undefined {
+export function computeDailySalesHistory(bills: Bill[], productId: string, days = 10): number[] | undefined {
   const relevantBills = bills.filter((b) => b.status === 'completed' && b.items.some((i) => i.productId === productId))
   if (relevantBills.length === 0) return undefined
 

@@ -105,7 +105,7 @@ export function BillCreatePage() {
         })),
         taxPct: taxPctValue,
         discountPct: discountPctValue,
-        createdBy: session?.user.name ?? 'Unknown user',
+        createdBy: session?.user?.name ?? 'Unknown user',
       })
       toast({ title: 'Bill completed', description: `${bill.billNumber} saved — stock updated.`, tone: 'success' })
       navigate(`/app/billing/${bill.id}`)

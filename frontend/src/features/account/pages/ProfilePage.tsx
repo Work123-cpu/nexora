@@ -15,11 +15,11 @@ export function ProfilePage() {
   const { session, updateUser } = useAuth()
   const { toast } = useToast()
   const [form, setForm] = useState({
-    name: session?.user.name ?? '',
-    email: session?.user.email ?? '',
-    jobTitle: session?.user.jobTitle ?? '',
-    companyName: session?.user.companyName ?? '',
-    phone: session?.user.phone ?? '',
+    name: session?.user?.name ?? '',
+    email: session?.user?.email ?? '',
+    jobTitle: session?.user?.jobTitle ?? '',
+    companyName: session?.user?.companyName ?? '',
+    phone: session?.user?.phone ?? '',
   })
   const [isSaving, setIsSaving] = useState(false)
 

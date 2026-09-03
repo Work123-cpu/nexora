@@ -16,7 +16,7 @@ export function BusinessHealthCard() {
   const { health } = useBusinessHealth()
 
   return (
-    <Card>
+    <Card interactive>
       <CardHeader>
         <div>
           <CardTitle>Business Health</CardTitle>

@@ -43,7 +43,7 @@ export function PurchaseOrderDetailPage() {
     await advance.mutateAsync({
       id: po.id,
       status: nextStage,
-      approvedBy: nextStage === 'approved' ? session?.user.name : undefined,
+      approvedBy: nextStage === 'approved' ? session?.user?.name : undefined,
     })
     toast({ title: `PO ${nextStage === 'approved' ? 'approved' : 'updated'}`, description: `${po.poNumber} is now ${nextStage.replace('_', ' ')}.`, tone: 'success' })
   }

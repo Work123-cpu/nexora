@@ -7,7 +7,7 @@ import { computeDailySalesHistory, averageDailyUsage } from './computeSalesHisto
  * scrap). Returns undefined (never a fabricated number) unless at least one BOM-linked product
  * has `days` real calendar days of history — same honest-fallback contract as
  * computeDailySalesHistory. */
-export function computeMaterialDailyUsage(bills: Bill[], boms: BillOfMaterials[], rawMaterialId: string, days = 28): number | undefined {
+export function computeMaterialDailyUsage(bills: Bill[], boms: BillOfMaterials[], rawMaterialId: string, days = 10): number | undefined {
   let total = 0
   let anyContributed = false
 

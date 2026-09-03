@@ -9,6 +9,7 @@ import { LoadingScreen } from '@/shared/ui/LoadingScreen'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { StatCard } from '@/shared/ui/StatCard'
 import { formatCurrency, formatDate, formatPercent } from '@/shared/lib/formatters'
+import { contrastColor } from '@/shared/lib/contrastColor'
 import { useProduct } from '../hooks/useProducts'
 import { ProductStatusBadge } from '../components/ProductStatusBadge'
 import { useBOMs } from '@/features/bom/hooks/useBOM'
@@ -63,10 +64,13 @@ export function ProductDetailPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
+        <Card interactive className="lg:col-span-2">
           <CardHeader>
             <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-xl text-white" style={{ backgroundColor: product.accentColor }}>
+              <div
+                className="flex size-10 items-center justify-center rounded-xl"
+                style={{ backgroundColor: product.accentColor, color: contrastColor(product.accentColor) }}
+              >
                 <Layers className="size-5" />
               </div>
               <div>
@@ -116,7 +120,7 @@ export function ProductDetailPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card interactive>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <ListTree className="size-4" /> Bill of Materials

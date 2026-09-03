@@ -57,12 +57,13 @@ public class AiServiceClient {
         }
     }
 
-    public Optional<IndicatorResult> indicator(String materialName, String category, String referenceCommodity) {
+    public Optional<IndicatorResult> indicator(String materialName, String category, String referenceCommodity, String previousTrend) {
         try {
             var body = objectMapper.createObjectNode()
                     .put("materialName", materialName)
                     .put("category", category)
                     .put("referenceCommodity", referenceCommodity);
+            if (previousTrend != null) body.put("previousTrend", previousTrend);
             JsonNode root = post("/api/ai/price-indicator", objectMapper.writeValueAsString(body));
             if (root == null) return Optional.empty();
             String trend = root.path("trend").asText(null);

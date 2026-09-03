@@ -32,6 +32,10 @@
 
   --shadow-color: 15 23 42;
 
+  /* Dialog/drawer/command-palette backdrop scrim — deliberately the same value in both themes
+     (no .dark override), since a dimming overlay isn't a themed surface. */
+  --overlay: 2 6 23;
+
   color-scheme: light;
 }
 
@@ -98,6 +102,7 @@
   --color-info-soft: rgb(var(--info-soft));
 
   --color-ring: rgb(var(--ring));
+  --color-overlay: rgb(var(--overlay));
 
   --radius-sm: 0.375rem;
   --radius-md: 0.625rem;

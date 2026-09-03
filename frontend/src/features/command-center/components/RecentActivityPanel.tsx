@@ -23,7 +23,7 @@ export function RecentActivityPanel() {
     .slice(0, 8)
 
   return (
-    <Card>
+    <Card interactive>
       <CardHeader>
         <CardTitle>Recent Activity</CardTitle>
       </CardHeader>

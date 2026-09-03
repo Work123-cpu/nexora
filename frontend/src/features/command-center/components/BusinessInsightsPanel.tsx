@@ -31,7 +31,7 @@ export function BusinessInsightsPanel() {
   ]
 
   return (
-    <Card>
+    <Card interactive>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Lightbulb className="size-4" /> Business Insights

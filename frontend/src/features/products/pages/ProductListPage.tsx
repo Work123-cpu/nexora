@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Layers, PackagePlus, Pencil, Trash2, Upload } from 'lucide-react'
+import { Boxes, CircleCheck, Layers, ListTree, PackagePlus, Pencil, Trash2, Upload } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/layout/PageHeader'
 import { Button } from '@/shared/ui/Button'
+import { StatCard } from '@/shared/ui/StatCard'
 import { SearchInput } from '@/shared/ui/SearchInput'
 import { FilterBar, FilterChip } from '@/shared/ui/FilterBar'
 import { DataTable, type DataTableColumn } from '@/shared/ui/DataTable'
@@ -13,10 +14,12 @@ import { useToast } from '@/shared/ui/Toast'
 import { RoleGuard } from '@/app/router/RoleGuard'
 import { useDebounce } from '@/shared/hooks/useDebounce'
 import { usePagination } from '@/shared/hooks/usePagination'
-import { formatCurrency, formatDate } from '@/shared/lib/formatters'
+import { formatCurrency, formatDate, formatNumber } from '@/shared/lib/formatters'
+import { contrastColor } from '@/shared/lib/contrastColor'
 import { PRODUCT_CATEGORIES } from '../constants'
 import type { Product } from '@/types/entities/product'
 import { useCreateProduct, useProducts } from '../hooks/useProducts'
+import { useBOMs } from '@/features/bom/hooks/useBOM'
 import type { ProductInput } from '../services/productService'
 import { mapProductCsvRow, PRODUCT_CSV_TEMPLATE } from '../lib/csvMapper'
 import { ProductStatusBadge } from '../components/ProductStatusBadge'
@@ -37,6 +40,18 @@ export function ProductListPage() {
 
   const { data, isLoading } = useProducts({ page, pageSize, search: debouncedSearch, category, sortBy, sortDir })
 
+  // Stat cards summarize every product, not just the current page — a separate, unfiltered
+  // fetch, since `data` above only has this page's rows.
+  const { data: allData } = useProducts({ pageSize: 10000 })
+  const allProducts = allData?.items ?? []
+  const activeCount = allProducts.filter((p) => p.status === 'active').length
+
+  // product.hasBOM isn't reliable against the real backend (always false there) — cross-reference
+  // the live BOM list directly instead, same fix already applied in BomForm.tsx.
+  const { data: bomsData } = useBOMs({ pageSize: 10000 })
+  const bomProductIds = new Set((bomsData?.items ?? []).map((b) => b.productId))
+  const linkedToBomCount = allProducts.filter((p) => bomProductIds.has(p.id)).length
+
   const handleSort = (key: string) => {
     if (sortBy === key) setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
     else {
@@ -52,7 +67,10 @@ export function ProductListPage() {
       sortable: true,
       render: (p) => (
         <div className="flex items-center gap-3">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg text-white" style={{ backgroundColor: p.accentColor }}>
+          <div
+            className="flex size-8 shrink-0 items-center justify-center rounded-lg"
+            style={{ backgroundColor: p.accentColor, color: contrastColor(p.accentColor) }}
+          >
             <Layers className="size-4" />
           </div>
           <div>
@@ -65,7 +83,7 @@ export function ProductListPage() {
     { key: 'category', header: 'Category', sortable: true, render: (p) => p.category },
     { key: 'unitPrice', header: 'Price', sortable: true, render: (p) => formatCurrency(p.unitPrice, true) },
     { key: 'unitCost', header: 'Cost', sortable: true, render: (p) => formatCurrency(p.unitCost, true) },
-    { key: 'hasBOM', header: 'BOM', render: (p) => (p.hasBOM ? <span className="text-success">Linked</span> : <span className="text-muted-foreground">None</span>) },
+    { key: 'hasBOM', header: 'BOM', render: (p) => (bomProductIds.has(p.id) ? <span className="text-success">Linked</span> : <span className="text-muted-foreground">None</span>) },
     { key: 'status', header: 'Status', render: (p) => <ProductStatusBadge status={p.status} /> },
     { key: 'updatedAt', header: 'Updated', sortable: true, render: (p) => formatDate(p.updatedAt) },
     {
@@ -113,6 +131,12 @@ export function ProductListPage() {
           </RoleGuard>
         }
       />
+
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatCard label="Total Products" value={formatNumber(allProducts.length)} icon={<Boxes className="size-5" />} tone="primary" />
+        <StatCard label="Active" value={formatNumber(activeCount)} icon={<CircleCheck className="size-5" />} tone="success" />
+        <StatCard label="Linked to a BOM" value={formatNumber(linkedToBomCount)} icon={<ListTree className="size-5" />} tone="info" />
+      </div>
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <SearchInput value={search} onChange={setSearch} placeholder="Search products by name, SKU, or category…" className="sm:max-w-sm" />

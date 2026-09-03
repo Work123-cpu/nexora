@@ -12,6 +12,9 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // TEMP (demo tunnel): Vite blocks unrecognized Host headers by default — allow any
+    // trycloudflare.com quick-tunnel hostname. Remove once the demo tunnel is torn down.
+    allowedHosts: ['.trycloudflare.com'],
   },
   test: {
     environment: 'node',

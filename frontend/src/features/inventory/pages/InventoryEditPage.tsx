@@ -201,7 +201,7 @@ export function InventoryEditPage() {
               placeholder="e.g. 12.5"
               hint={
                 computedAvgDailyUsage !== undefined
-                  ? 'Computed from 28 days of real sales history — you can override this.'
+                  ? 'Computed from 10 days of real sales history — you can override this.'
                   : 'Average units sold per day — used to estimate days of stock remaining and demand forecasts.'
               }
               value={avgDailyUsage}

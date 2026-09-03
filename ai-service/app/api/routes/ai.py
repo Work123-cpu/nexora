@@ -204,6 +204,16 @@ async def material_classify(req: MaterialClassifyRequest, client: GroqClientWrap
 
 
 def _build_price_indicator_prompt(req: PriceIndicatorRequest) -> str:
+    continuity = (
+        f'This material was last read as "{req.previousTrend}". Estimates like this should stay '
+        f"stable between checks — real commodity trends do not reverse direction every few hours. "
+        f'Keep the trend as "{req.previousTrend}" UNLESS you have a genuine, specific reason tied to '
+        f"the underlying commodity to believe the direction has actually changed since then; do not "
+        f"switch direction merely for variety or because the two are both plausible.\n\n"
+        if req.previousTrend
+        else "This material has no prior reading yet — pick the direction that best reflects normal, "
+        "typical market conditions for the underlying commodity, defaulting to \"stable\" if genuinely uncertain.\n\n"
+    )
     return (
         f"You are estimating today's likely price direction for a raw material that has NO "
         f"standardized daily price feed available. Do not invent a specific price or number — only "
@@ -212,6 +222,7 @@ def _build_price_indicator_prompt(req: PriceIndicatorRequest) -> str:
         f'Material: "{req.materialName}"\n'
         f"Category: {req.category}\n"
         f"Underlying reference commodity: {req.referenceCommodity or 'none known'}\n\n"
+        f"{continuity}"
         f"Respond with ONLY a JSON object, no prose, no markdown code fences, matching exactly this shape:\n"
         f'{{"trend": "rising"|"stable"|"falling", "confidence": "low"|"medium", "reasoning": "<one short sentence>"}}\n\n'
         f'Never respond with "high" confidence — this is an estimate, not a real price feed. Default to '

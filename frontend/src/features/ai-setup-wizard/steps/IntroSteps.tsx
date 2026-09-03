@@ -52,7 +52,7 @@ export function CompanyStep() {
   const { session } = useAuth()
 
   useEffect(() => {
-    if (!data.companyName && session?.user.companyName) updateData({ companyName: session.user.companyName })
+    if (!data.companyName && session?.user?.companyName) updateData({ companyName: session.user.companyName })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session])
 

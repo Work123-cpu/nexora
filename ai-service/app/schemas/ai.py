@@ -112,6 +112,7 @@ class PriceIndicatorRequest(BaseModel):
     materialName: str
     category: MaterialCategory
     referenceCommodity: str | None = None
+    previousTrend: PriceTrend | None = None
 
 
 class PriceIndicatorResponse(BaseModel):

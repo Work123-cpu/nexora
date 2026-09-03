@@ -13,7 +13,7 @@ const ACTIONS = [
 
 export function QuickActionsPanel() {
   return (
-    <Card>
+    <Card interactive>
       <CardHeader>
         <CardTitle>Quick Actions</CardTitle>
       </CardHeader>

@@ -24,7 +24,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
   return (
     <>
       {mobileOpen && (
-        <div className="fixed inset-0 z-40 bg-slate-950/50 backdrop-blur-sm lg:hidden" onClick={onCloseMobile} />
+        <div className="fixed inset-0 z-40 bg-overlay/50 backdrop-blur-sm lg:hidden" onClick={onCloseMobile} />
       )}
       <aside
         className={cn(

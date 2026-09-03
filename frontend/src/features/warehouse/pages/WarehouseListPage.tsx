@@ -6,10 +6,12 @@ import { Card, CardContent } from '@/shared/ui/Card'
 import { Button } from '@/shared/ui/Button'
 import { IconButton } from '@/shared/ui/IconButton'
 import { Select } from '@/shared/ui/Select'
+import { SearchInput } from '@/shared/ui/SearchInput'
 import { StatCard } from '@/shared/ui/StatCard'
 import { Badge } from '@/shared/ui/Badge'
 import { ProgressBar } from '@/shared/ui/ProgressBar'
 import { RoleGuard } from '@/app/router/RoleGuard'
+import { useDebounce } from '@/shared/hooks/useDebounce'
 import { formatNumber, formatPercent } from '@/shared/lib/formatters'
 import { useWarehouses } from '../hooks/useWarehouses'
 
@@ -29,15 +31,20 @@ const SORT_OPTIONS = [
 
 export function WarehouseListPage() {
   const navigate = useNavigate()
+  const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState('name')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
-  const { data } = useWarehouses({ pageSize: 20, sortBy, sortDir })
+  const debouncedSearch = useDebounce(search)
+  const { data } = useWarehouses({ pageSize: 20, search: debouncedSearch, sortBy, sortDir })
   const warehouses = data?.items ?? []
 
-  const totalCapacity = warehouses.reduce((sum, w) => sum + w.capacityUnits, 0)
-  const totalUsed = warehouses.reduce((sum, w) => sum + w.usedUnits, 0)
+  // Stat cards summarize every warehouse, not just the current search results.
+  const { data: allData } = useWarehouses({ pageSize: 10000 })
+  const allWarehouses = allData?.items ?? []
+  const totalCapacity = allWarehouses.reduce((sum, w) => sum + w.capacityUnits, 0)
+  const totalUsed = allWarehouses.reduce((sum, w) => sum + w.usedUnits, 0)
   const avgUtilization = totalCapacity > 0 ? (totalUsed / totalCapacity) * 100 : 0
-  const operational = warehouses.filter((w) => w.status === 'operational').length
+  const operational = allWarehouses.filter((w) => w.status === 'operational').length
 
   return (
     <div>
@@ -54,19 +61,22 @@ export function WarehouseListPage() {
       />
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="Total Warehouses" value={formatNumber(warehouses.length)} icon={<WarehouseIcon className="size-5" />} tone="primary" />
+        <StatCard label="Total Warehouses" value={formatNumber(allWarehouses.length)} icon={<WarehouseIcon className="size-5" />} tone="primary" />
         <StatCard label="Average Utilization" value={formatPercent(avgUtilization, 0)} icon={<Boxes className="size-5" />} tone="warning" />
-        <StatCard label="Operational" value={`${operational} / ${warehouses.length}`} icon={<Boxes className="size-5" />} tone="success" />
+        <StatCard label="Operational" value={`${operational} / ${allWarehouses.length}`} icon={<Boxes className="size-5" />} tone="success" />
       </div>
 
-      <div className="mb-4 flex items-center justify-end gap-2">
-        <Select className="h-9 w-36" value={sortBy} onChange={(e) => setSortBy(e.target.value)} options={SORT_OPTIONS} />
-        <IconButton
-          icon={sortDir === 'asc' ? <ArrowUp className="size-4" /> : <ArrowDown className="size-4" />}
-          variant="default"
-          aria-label={sortDir === 'asc' ? 'Sorted ascending — click for descending' : 'Sorted descending — click for ascending'}
-          onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
-        />
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <SearchInput value={search} onChange={setSearch} placeholder="Search warehouses by name, code, or city…" className="sm:max-w-sm" />
+        <div className="flex items-center gap-2">
+          <Select className="h-9 w-36" value={sortBy} onChange={(e) => setSortBy(e.target.value)} options={SORT_OPTIONS} />
+          <IconButton
+            icon={sortDir === 'asc' ? <ArrowUp className="size-4" /> : <ArrowDown className="size-4" />}
+            variant="default"
+            aria-label={sortDir === 'asc' ? 'Sorted ascending — click for descending' : 'Sorted descending — click for ascending'}
+            onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
+          />
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

@@ -1,14 +1,13 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { billService, type BillInput } from '../services/billService'
-import type { QueryParams } from '@/services/base/types'
+import { billService, type BillInput, type GetBillsParams } from '../services/billService'
 
 export const billKeys = {
   all: ['bills'] as const,
-  list: (params: QueryParams) => [...billKeys.all, 'list', params] as const,
+  list: (params: GetBillsParams) => [...billKeys.all, 'list', params] as const,
   detail: (id: string) => [...billKeys.all, 'detail', id] as const,
 }
 
-export function useBills(params: QueryParams = {}) {
+export function useBills(params: GetBillsParams = {}) {
   return useQuery({ queryKey: billKeys.list(params), queryFn: () => billService.getBills(params), placeholderData: keepPreviousData })
 }
 

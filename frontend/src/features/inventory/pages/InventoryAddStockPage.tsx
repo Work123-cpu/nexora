@@ -249,8 +249,8 @@ export function InventoryAddStockPage() {
               placeholder="e.g. 12.5"
               hint={
                 computedAvgDailyUsage !== undefined
-                  ? 'Computed from 28 days of real sales history — you can override this.'
-                  : 'Average units sold per day — used to estimate days of stock remaining and demand forecasts. Not enough sales history yet to compute this automatically (needs 28+ days); enter your best estimate.'
+                  ? 'Computed from 10 days of real sales history — you can override this.'
+                  : 'Average units sold per day — used to estimate days of stock remaining and demand forecasts. Not enough sales history yet to compute this automatically (needs 10+ days); enter your best estimate.'
               }
               value={avgDailyUsage}
               onChange={(e) => setAvgDailyUsage(e.target.value === '' ? '' : Number(e.target.value))}

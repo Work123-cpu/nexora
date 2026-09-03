@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Info, Sparkles } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/layout/PageHeader'
 import { StatCard } from '@/shared/ui/StatCard'
+import { Reveal } from '@/shared/ui/Reveal'
 import { Select } from '@/shared/ui/Select'
 import { Badge, type BadgeTone } from '@/shared/ui/Badge'
 import { AreaChartCard } from '@/shared/ui/charts/AreaChartCard'
@@ -155,10 +156,10 @@ export function ForecastReport() {
         avgConfidence !== undefined ? ` (avg. confidence ${(avgConfidence * 100).toFixed(0)}%)` : ''
       }. ${
         realHistoryCount === 0
-          ? "None of these products have 28 days of real sales history yet, so they're forecast from a category-level estimate — this becomes your own data automatically once enough bills accumulate."
+          ? "None of these products have 10 days of real sales history yet, so they're forecast from a category-level estimate — this becomes your own data automatically once enough bills accumulate."
           : realHistoryCount === trackedProducts.length
             ? 'Every one of these forecasts is built from your own real sales history.'
-            : `${realHistoryCount} of ${trackedProducts.length} products are forecast from your own real sales history; the rest use a category-level estimate until they build up 28 days of sales.`
+            : `${realHistoryCount} of ${trackedProducts.length} products are forecast from your own real sales history; the rest use a category-level estimate until they build up 10 days of sales.`
       }`
 
   return (
@@ -184,29 +185,35 @@ export function ForecastReport() {
         <p>{bannerText}</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <StatCard label="Avg Projected Demand / Period" value={formatNumber(avgProjectedDemand)} tone="primary" />
-        <StatCard
-          label={`Total Projected Demand (Next ${GRANULARITY_OPTIONS.find((g) => g.value === granularity)?.label})`}
-          value={totalProjected !== undefined ? formatNumber(Math.round(totalProjected)) : '…'}
-          tone="info"
+      <Reveal>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <StatCard label="Avg Projected Demand / Period" value={formatNumber(avgProjectedDemand)} tone="primary" />
+          <StatCard
+            label={`Total Projected Demand (Next ${GRANULARITY_OPTIONS.find((g) => g.value === granularity)?.label})`}
+            value={totalProjected !== undefined ? formatNumber(Math.round(totalProjected)) : '…'}
+            tone="info"
+          />
+        </div>
+      </Reveal>
+
+      <Reveal delay={0.05}>
+        <AreaChartCard
+          title="Projected Demand Trend"
+          description={`Next ${TREND_HORIZON} periods, summed across tracked products`}
+          data={chartData}
+          xKey="date"
+          areaKey="demand"
+          label="Projected units"
+          colorIndex={1}
         />
-      </div>
+      </Reveal>
 
-      <AreaChartCard
-        title="Projected Demand Trend"
-        description={`Next ${TREND_HORIZON} periods, summed across tracked products`}
-        data={chartData}
-        xKey="date"
-        areaKey="demand"
-        label="Projected units"
-        colorIndex={1}
-      />
-
-      <div>
-        <h2 className="mb-3 text-sm font-semibold text-foreground">Product-Level Demand Projection</h2>
-        <DataTable columns={columns} data={rows} rowKey={(r) => r.productId} />
-      </div>
+      <Reveal delay={0.1}>
+        <div>
+          <h2 className="mb-3 text-sm font-semibold text-foreground">Product-Level Demand Projection</h2>
+          <DataTable columns={columns} data={rows} rowKey={(r) => r.productId} />
+        </div>
+      </Reveal>
     </div>
   )
 }

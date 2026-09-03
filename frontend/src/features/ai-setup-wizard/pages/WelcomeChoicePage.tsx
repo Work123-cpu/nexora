@@ -13,7 +13,7 @@ import { WIZARD_STEP_KEY, WIZARD_DATA_KEY } from '../context/WizardContext'
 export function WelcomeChoicePage() {
   const navigate = useNavigate()
   const { session } = useAuth()
-  const firstName = session?.user.name.split(' ')[0] ?? 'there'
+  const firstName = session?.user?.name.split(' ')[0] ?? 'there'
 
   return (
     <div className="flex flex-col items-center py-10 text-center">
