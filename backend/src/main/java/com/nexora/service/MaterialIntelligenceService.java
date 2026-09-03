@@ -180,6 +180,19 @@ public class MaterialIntelligenceService {
 
         double priceInInr = move.get().value() * fxRate.get();
         String unit = match.get().unit().replace("USD", "INR");
+
+        // Alpha Vantage reports mass-based commodities per metric ton or per pound -- neither is a
+        // unit a small business actually buys raw material in. Normalize both to per-kg so every
+        // material on the page reads in the same practical unit. Volume/energy commodities (oil in
+        // USD/barrel, gas in USD/MMBtu) have no sensible mass equivalent, so they're left as-is.
+        if (unit.endsWith("/ metric ton")) {
+            priceInInr = priceInInr / 1000.0;
+            unit = "INR / kg";
+        } else if (unit.endsWith("/ lb")) {
+            priceInInr = priceInInr * 2.20462; // 1 kg = 2.20462 lb, so price-per-kg = price-per-lb * 2.20462
+            unit = "INR / kg";
+        }
+
         saveRealSnapshot(material, today, BigDecimal.valueOf(priceInInr), unit, "Alpha Vantage (global spot, converted to INR)", null);
         return true;
     }

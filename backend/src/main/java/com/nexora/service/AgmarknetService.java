@@ -112,9 +112,9 @@ public class AgmarknetService {
             double modalPrice = Double.parseDouble(latest.path("modal_price").asText("0"));
             if (modalPrice <= 0) return cached != null ? Optional.of(cached.price()) : Optional.empty();
 
-            // Agmarknet reports most commodity prices per quintal (100kg) — a known simplification;
-            // callers doing per-kg unit math should divide by 100.
-            AgriPrice fresh = new AgriPrice(modalPrice, "quintal", latest.path("market").asText(null),
+            // Agmarknet reports prices per quintal (100kg) — converted to per-kg here so every
+            // caller gets a practical, consistent unit without needing to remember the factor.
+            AgriPrice fresh = new AgriPrice(modalPrice / 100.0, "kg", latest.path("market").asText(null),
                     latest.path("state").asText(null), latestDate);
             cache.put(cacheKey, new CacheEntry(fresh, Instant.now()));
             return Optional.of(fresh);
