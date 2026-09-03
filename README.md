@@ -54,6 +54,8 @@ Instead of running each piece manually, from the repo root:
 
 - `run-nexora.cmd` — starts backend + AI service + frontend locally in one go.
 - `run-nexora-demo.cmd` — additionally tunnels the running app so someone off your network
-  can open a link and use it live, no setup on their end.
+  can open a link and use it live, no setup on their end. AI features are mocked.
+- `run-nexora-share.cmd` — same as above, but also tunnels the AI service and enables real
+  AI mode, so friends get every feature (chat, forecasting) working through the link too.
 - `run-nexora-collab.cmd` — tunnels just your backend + AI service so a teammate can run
   their own frontend against your live data (see [`docs/FRIEND_SETUP.md`](docs/FRIEND_SETUP.md)).
