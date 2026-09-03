@@ -1,8 +1,7 @@
 import { useRef, useState } from 'react'
-import { Bot, Building2, Globe, LogOut, Moon, Palette, Radio, RefreshCw, Sun, Monitor, Upload } from 'lucide-react'
+import { Bot, Building2, LogOut, Moon, Palette, Radio, RefreshCw, Sun, Monitor, Upload } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/layout/PageHeader'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/Card'
-import { Switch } from '@/shared/ui/Switch'
 import { Select } from '@/shared/ui/Select'
 import { Input } from '@/shared/ui/Input'
 import { Button } from '@/shared/ui/Button'
@@ -23,20 +22,11 @@ const THEME_OPTIONS: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
   { value: 'system', label: 'System', icon: Monitor },
 ]
 
-const LANGUAGE_OPTIONS = [
-  { label: 'English (US)', value: 'en-US' },
-  { label: 'Spanish', value: 'es' },
-  { label: 'French', value: 'fr' },
-  { label: 'German', value: 'de' },
-]
-
 export function SettingsPage() {
   const { mode, setMode } = useTheme()
   const { logout } = useAuth()
   const { toast } = useToast()
   const navigate = useNavigate()
-  const [language, setLanguage] = useState('en-US')
-  const [notifications, setNotifications] = useState({ email: true, push: true, weeklyDigest: false, criticalAlertsOnly: false })
   const [company, setCompany] = useState(() => getCompanyConfig())
   const logoInputRef = useRef<HTMLInputElement>(null)
   const [groqKey, setGroqKey] = useState('')
@@ -291,60 +281,6 @@ export function SettingsPage() {
                 </button>
               ))}
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Globe className="size-4" /> Language & Region
-              </CardTitle>
-              <CardDescription className="mt-1">Set your preferred language for the interface.</CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <Select
-              options={LANGUAGE_OPTIONS}
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-              className="max-w-xs"
-            />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div>
-              <CardTitle>Notifications</CardTitle>
-              <CardDescription className="mt-1">Choose what Nexora notifies you about.</CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Switch
-              label="Email notifications"
-              description="Receive email updates about important business events."
-              checked={notifications.email}
-              onChange={(e) => setNotifications({ ...notifications, email: e.target.checked })}
-            />
-            <Switch
-              label="Push notifications"
-              description="Get real-time alerts in your browser."
-              checked={notifications.push}
-              onChange={(e) => setNotifications({ ...notifications, push: e.target.checked })}
-            />
-            <Switch
-              label="Weekly digest"
-              description="A weekly summary of business health and AI recommendations."
-              checked={notifications.weeklyDigest}
-              onChange={(e) => setNotifications({ ...notifications, weeklyDigest: e.target.checked })}
-            />
-            <Switch
-              label="Critical alerts only"
-              description="Suppress low-priority notifications."
-              checked={notifications.criticalAlertsOnly}
-              onChange={(e) => setNotifications({ ...notifications, criticalAlertsOnly: e.target.checked })}
-            />
           </CardContent>
         </Card>
 

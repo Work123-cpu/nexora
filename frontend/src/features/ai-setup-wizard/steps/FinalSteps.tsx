@@ -33,7 +33,6 @@ export function ReviewStep() {
     { label: 'Raw Materials', value: `${formatNumber(rawMaterials.length)} materials` },
     { label: 'Bills of Materials', value: `${formatNumber(billsOfMaterials.length)} defined` },
     { label: 'Vendors', value: `${formatNumber(vendors.length)} suppliers` },
-    { label: 'Billing Integration', value: data.billingProvider === 'none' ? 'Not connected' : data.billingProvider },
   ]
 
   return (

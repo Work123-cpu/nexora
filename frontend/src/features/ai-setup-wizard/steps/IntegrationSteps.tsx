@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom'
-import { CalendarDays, CheckCircle2, CreditCard, Plus, Truck } from 'lucide-react'
+import { CalendarDays, CheckCircle2, Plus, Truck } from 'lucide-react'
 import { StatCard } from '@/shared/ui/StatCard'
-import { RadioGroup } from '@/shared/ui/RadioGroup'
 import { Checkbox } from '@/shared/ui/Checkbox'
 import { Button } from '@/shared/ui/Button'
 import { EmptyState } from '@/shared/ui/EmptyState'
@@ -49,33 +48,6 @@ export function SuppliersStep() {
           </Link>
         </>
       )}
-    </WizardStepLayout>
-  )
-}
-
-const BILLING_OPTIONS = [
-  { label: 'None — I\'ll set this up later', value: 'none', description: 'Skip billing integration for now.' },
-  { label: 'Excel / CSV Import', value: 'excel', description: 'Import billing and sales data via spreadsheet.' },
-  { label: 'REST API', value: 'api', description: 'Connect a billing system via API (Stripe, QuickBooks, etc.).' },
-  { label: 'Database Connection', value: 'database', description: 'Connect directly to an existing billing database.' },
-]
-
-export function BillingStep() {
-  const { data, updateData, next, back } = useWizard()
-  return (
-    <WizardStepLayout
-      title="Billing Integration"
-      description="Nexora supports universal billing integration — choose how you'd like to connect, or skip for now."
-      onNext={next}
-      onBack={back}
-    >
-      <div className="flex items-center gap-2 rounded-xl bg-info-soft p-3 text-xs text-foreground">
-        <CreditCard className="size-4 text-info" />
-        Billing integration is optional and does not block the rest of setup.
-      </div>
-      <div className="mt-4">
-        <RadioGroup name="billing" value={data.billingProvider} onChange={(value) => updateData({ billingProvider: value })} options={BILLING_OPTIONS} />
-      </div>
     </WizardStepLayout>
   )
 }

@@ -5,7 +5,6 @@ export interface WizardData {
   companyName: string
   industry: string
   companySize: string
-  billingProvider: string
   acknowledgedCalendar: boolean
   completed: boolean
 }
@@ -21,7 +20,6 @@ const DEFAULT_DATA: WizardData = {
   companyName: '',
   industry: 'Food & Beverage Manufacturing',
   companySize: '1-10 employees',
-  billingProvider: 'none',
   acknowledgedCalendar: false,
   completed: false,
 }
@@ -35,7 +33,6 @@ export const WIZARD_STEPS = [
   'Bill of Materials',
   'Inventory',
   'Suppliers',
-  'Billing',
   'Business Calendar',
   'Review',
   'Completion',
