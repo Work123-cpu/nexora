@@ -225,11 +225,14 @@ public class NotificationService {
     }
 
     /** Updates the existing open alert for this entity in place (so a PO's notification text
-     * updates from "in transit" to "received" rather than duplicating), or creates a new one. */
+     * updates from "in transit" to "received" rather than duplicating), or creates a new one.
+     * Looks up by list rather than a unique-result query because earlier code once allowed
+     * duplicate open alerts for the same entity to accumulate; using the most recent as canonical
+     * and resolving the rest here lets any pre-existing duplicates self-heal on next sync. */
     private void upsert(String companyId, String entityType, String entityId, NotificationCategory category,
                          NotificationPriority priority, String title, String message, String link) {
-        Notification n = notifications.findByCompanyIdAndEntityTypeAndEntityIdAndResolvedAtIsNull(companyId, entityType, entityId)
-                .orElseGet(Notification::new);
+        List<Notification> open = notifications.findByCompanyIdAndEntityTypeAndEntityIdAndResolvedAtIsNullOrderByCreatedAtDesc(companyId, entityType, entityId);
+        Notification n = open.isEmpty() ? new Notification() : open.get(0);
         boolean isNew = n.getCompanyId() == null;
         n.setCompanyId(companyId);
         n.setCategory(category);
@@ -241,13 +244,27 @@ public class NotificationService {
         n.setLink(link);
         if (isNew) n.setRead(false);
         notifications.save(n);
+        resolveDuplicates(open);
     }
 
     private void resolveIfExists(String companyId, String entityType, String entityId) {
-        Optional<Notification> existing = notifications.findByCompanyIdAndEntityTypeAndEntityIdAndResolvedAtIsNull(companyId, entityType, entityId);
-        existing.ifPresent(n -> {
-            n.setResolvedAt(Instant.now());
+        List<Notification> open = notifications.findByCompanyIdAndEntityTypeAndEntityIdAndResolvedAtIsNullOrderByCreatedAtDesc(companyId, entityType, entityId);
+        Instant now = Instant.now();
+        for (Notification n : open) {
+            n.setResolvedAt(now);
             notifications.save(n);
-        });
+        }
+    }
+
+    /** Resolves every open duplicate past the first (most recent, already kept as canonical by
+     * the caller) so a pre-existing pile-up for one entity shrinks back to at most one open row. */
+    private void resolveDuplicates(List<Notification> open) {
+        if (open.size() <= 1) return;
+        Instant now = Instant.now();
+        for (int i = 1; i < open.size(); i++) {
+            Notification dup = open.get(i);
+            dup.setResolvedAt(now);
+            notifications.save(dup);
+        }
     }
 }
