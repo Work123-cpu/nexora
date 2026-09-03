@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { Send, Sparkles, Trash2 } from 'lucide-react'
 import { cn } from '@/shared/lib/cn'
 import { IconButton } from '@/shared/ui/IconButton'
@@ -47,13 +48,13 @@ export function ChatWindow({ onClose }: { onClose?: () => void }) {
           <div key={message.id} className={cn('flex', message.role === 'user' ? 'justify-end' : 'justify-start')}>
             <div
               className={cn(
-                'max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed',
-                message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-surface-elevated text-foreground',
+                'rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed',
+                message.role === 'user' ? 'max-w-[85%] bg-primary text-primary-foreground' : 'max-w-[95%] bg-surface-elevated text-foreground',
               )}
             >
               {message.role === 'assistant' ? (
-                <div className="prose-sm [&_p]:m-0 [&_ul]:my-1 [&_ul]:pl-4">
-                  <ReactMarkdown>{message.content}</ReactMarkdown>
+                <div className="max-w-full overflow-x-auto [&_p]:m-0 [&_p+p]:mt-2 [&_ul]:my-1 [&_ul]:pl-4 [&_ol]:my-1 [&_ol]:pl-4 [&_table]:my-2 [&_table]:w-full [&_table]:border-collapse [&_table]:text-xs [&_th]:border [&_th]:border-border [&_th]:bg-surface [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_th]:font-medium [&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1 [&_code]:rounded [&_code]:bg-surface [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-xs">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
                 </div>
               ) : (
                 message.content
