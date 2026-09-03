@@ -2,15 +2,28 @@ import type { BusinessHealth, HealthCategory, HealthStatus } from './types'
 import type { InventoryItem } from '@/types/entities/inventory'
 import type { Vendor } from '@/types/entities/vendor'
 import type { PurchaseOrder } from '@/types/entities/purchaseOrder'
+import type { Bill } from '@/types/entities/bill'
 import type { LiveMarketSignal } from '@/shared/hooks/useLiveMarketSignals'
 
 export * from './types'
+
+/** Real measured DB round-trip from GET /api/system/health (field names match
+ * SystemHealthResponse on the backend exactly — apiClient does no runtime validation, so a
+ * mismatch here would silently read undefined instead of failing loudly). Null while that
+ * request hasn't resolved yet (not the same as an empty-but-legitimate list, so it scores
+ * differently below). */
+export interface SystemHealthSignal {
+  databaseHealthy: boolean
+  databaseLatencyMs: number
+}
 
 export interface BusinessHealthInputs {
   inventoryItems: InventoryItem[]
   vendors: Vendor[]
   purchaseOrders: PurchaseOrder[]
   marketSignals: LiveMarketSignal[]
+  bills: Bill[]
+  systemHealth: SystemHealthSignal | null
 }
 
 function statusForScore(score: number): HealthStatus {
@@ -101,27 +114,59 @@ function computeProcurementHealth(purchaseOrders: PurchaseOrder[]): HealthCatego
   }
 }
 
-// TODO(backend): once MySQL/Spring Boot exist, replace with real query latency,
-// connection pool, and replication health checks. Mocked as healthy for this milestone.
-function computeDatabaseHealth(): HealthCategory {
+/** Scored from a real round-trip against the backend's DB connection pool (GET
+ * /api/system/health), not a mock — see SystemHealthController on the backend. */
+function computeDatabaseHealth(system: SystemHealthSignal | null): HealthCategory {
+  if (!system) {
+    return {
+      key: 'database',
+      label: 'Database Health',
+      score: 50,
+      status: statusForScore(50),
+      summary: 'Waiting on a response from the backend to measure database health.',
+    }
+  }
+  if (!system.databaseHealthy) {
+    return {
+      key: 'database',
+      label: 'Database Health',
+      score: 20,
+      status: statusForScore(20),
+      summary: 'The backend could not validate its database connection.',
+    }
+  }
+  const score = Math.max(40, Math.round(100 - system.databaseLatencyMs * 0.5))
   return {
     key: 'database',
     label: 'Database Health',
-    score: 98,
-    status: 'excellent',
-    summary: 'Mocked — will report real query latency and connection health once the backend database is connected.',
+    score,
+    status: statusForScore(score),
+    summary: `Database connection validated in ${system.databaseLatencyMs}ms.`,
   }
 }
 
-// TODO(backend): once the billing integration (18_BILLING_INTEGRATION.md) exists,
-// replace with real sync status / webhook health. Mocked as healthy for this milestone.
-function computeBillingHealth(): HealthCategory {
+/** Scored from this company's real bills — "billing" here is the sales-invoice feature
+ * (Bill/BillLineItem), not a third-party payment processor. A high cancellation rate is the
+ * clearest available signal that something's off in the billing flow. */
+function computeBillingHealth(bills: Bill[]): HealthCategory {
+  if (bills.length === 0) {
+    return {
+      key: 'billing',
+      label: 'Billing Health',
+      score: 100,
+      status: 'excellent',
+      summary: 'No bills recorded yet.',
+    }
+  }
+  const cancelled = bills.filter((b) => b.status === 'cancelled').length
+  const cancelledPct = (cancelled / bills.length) * 100
+  const score = Math.max(35, Math.round(98 - cancelledPct * 0.7))
   return {
     key: 'billing',
     label: 'Billing Health',
-    score: 95,
-    status: 'excellent',
-    summary: 'Mocked — will report real billing sync status once a billing integration is connected.',
+    score,
+    status: statusForScore(score),
+    summary: `${bills.length} bill(s) recorded; ${cancelled} cancelled (${cancelledPct.toFixed(0)}%).`,
   }
 }
 
@@ -143,15 +188,15 @@ function computeMarketRiskHealth(marketSignals: LiveMarketSignal[]): HealthCateg
 }
 
 export function computeBusinessHealth(inputs: BusinessHealthInputs): BusinessHealth {
-  const { inventoryItems, vendors, purchaseOrders, marketSignals } = inputs
+  const { inventoryItems, vendors, purchaseOrders, marketSignals, bills, systemHealth } = inputs
   const categories = [
     computeInventoryHealth(inventoryItems),
     computeSupplierHealth(vendors),
     computeProcurementHealth(purchaseOrders),
     computeForecastHealth(inventoryItems),
     computeMarketRiskHealth(marketSignals),
-    computeDatabaseHealth(),
-    computeBillingHealth(),
+    computeDatabaseHealth(systemHealth),
+    computeBillingHealth(bills),
   ]
   const overallScore = Math.round(categories.reduce((sum, c) => sum + c.score, 0) / categories.length)
 

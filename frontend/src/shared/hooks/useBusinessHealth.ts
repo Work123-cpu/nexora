@@ -1,9 +1,12 @@
 import { useMemo } from 'react'
-import { computeBusinessHealth, type BusinessHealth } from '@/lib/health-engine'
+import { useQuery } from '@tanstack/react-query'
+import { computeBusinessHealth, type BusinessHealth, type SystemHealthSignal } from '@/lib/health-engine'
 import { useInventoryItems } from '@/features/inventory/hooks/useInventory'
 import { useRawMaterials } from '@/features/raw-materials/hooks/useRawMaterials'
 import { useVendors } from '@/features/vendors/hooks/useVendors'
 import { usePurchaseOrders } from '@/features/procurement/hooks/usePurchaseOrders'
+import { useBills } from '@/features/billing/hooks/useBills'
+import { apiClient } from '@/shared/lib/apiClient'
 import { useLiveMarketSignals } from './useLiveMarketSignals'
 
 /** Fetches this company's real inventory/materials/vendors/purchase-orders/live-market-data and feeds the pure health engine. */
@@ -12,6 +15,13 @@ export function useBusinessHealth(): { health: BusinessHealth; isLoading: boolea
   const { data: materialsData, isLoading: loadingMaterials } = useRawMaterials({ pageSize: 10000 })
   const { data: vendorsData, isLoading: loadingVendors } = useVendors({ pageSize: 10000 })
   const { data: poData, isLoading: loadingPOs } = usePurchaseOrders({ pageSize: 10000 })
+  const { data: billsData, isLoading: loadingBills } = useBills({ pageSize: 10000 })
+  const { data: systemHealth } = useQuery({
+    queryKey: ['system-health'],
+    queryFn: () => apiClient.get<SystemHealthSignal>('/system/health'),
+    refetchInterval: 60_000,
+    retry: false,
+  })
   const { signals: marketSignals } = useLiveMarketSignals(materialsData?.items ?? [])
 
   const health = useMemo(
@@ -21,9 +31,11 @@ export function useBusinessHealth(): { health: BusinessHealth; isLoading: boolea
         vendors: vendorsData?.items ?? [],
         purchaseOrders: poData?.items ?? [],
         marketSignals,
+        bills: billsData?.items ?? [],
+        systemHealth: systemHealth ?? null,
       }),
-    [inventoryData, vendorsData, poData, marketSignals],
+    [inventoryData, vendorsData, poData, marketSignals, billsData, systemHealth],
   )
 
-  return { health, isLoading: loadingInventory || loadingMaterials || loadingVendors || loadingPOs }
+  return { health, isLoading: loadingInventory || loadingMaterials || loadingVendors || loadingPOs || loadingBills }
 }

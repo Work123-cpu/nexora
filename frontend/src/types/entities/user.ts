@@ -11,11 +11,3 @@ export interface User {
   companyName?: string
   createdAt: string
 }
-
-export interface UserPreferences {
-  themeMode: 'light' | 'dark' | 'system'
-  language: string
-  emailNotifications: boolean
-  pushNotifications: boolean
-  weeklyDigest: boolean
-}

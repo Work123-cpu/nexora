@@ -3,6 +3,7 @@ import { computeBusinessHealth, type BusinessHealthInputs } from './index'
 import type { InventoryItem } from '@/types/entities/inventory'
 import type { Vendor } from '@/types/entities/vendor'
 import type { PurchaseOrder } from '@/types/entities/purchaseOrder'
+import type { Bill } from '@/types/entities/bill'
 
 const inventoryItems: InventoryItem[] = [
   {
@@ -34,7 +35,23 @@ const purchaseOrders: PurchaseOrder[] = [
   },
 ]
 
-const inputs: BusinessHealthInputs = { inventoryItems, vendors, purchaseOrders, marketSignals: [] }
+const bills: Bill[] = [
+  {
+    id: 'bill-1', billNumber: 'BILL-1001', warehouseId: 'wh-1', customerName: 'Walk-in Customer', status: 'completed',
+    items: [{ productId: 'prod-1', productName: 'Chocolate Cake', quantity: 2, unit: 'unit', unitPrice: 450, lineTotal: 900 }],
+    subtotal: 900, taxPct: 5, taxAmount: 45, discountPct: 0, discountAmount: 0, totalAmount: 945,
+    createdAt: '2026-01-01T00:00:00.000Z',
+  },
+]
+
+const inputs: BusinessHealthInputs = {
+  inventoryItems,
+  vendors,
+  purchaseOrders,
+  marketSignals: [],
+  bills,
+  systemHealth: { databaseHealthy: true, databaseLatencyMs: 5 },
+}
 
 describe('computeBusinessHealth', () => {
   it('produces an overall score that is the average of all category scores', () => {
@@ -68,8 +85,33 @@ describe('computeBusinessHealth', () => {
     expect(keys).toEqual(['billing', 'database', 'forecast', 'inventory', 'market', 'procurement', 'supplier'])
   })
 
+  it('scores Database Health from the real backend signal, not a hardcoded value', () => {
+    const healthyDb = computeBusinessHealth({ ...inputs, systemHealth: { databaseHealthy: true, databaseLatencyMs: 5 } })
+    const unhealthyDb = computeBusinessHealth({ ...inputs, systemHealth: { databaseHealthy: false, databaseLatencyMs: 0 } })
+    const dbScore = (health: ReturnType<typeof computeBusinessHealth>) => health.categories.find((c) => c.key === 'database')!.score
+
+    expect(dbScore(healthyDb)).toBeGreaterThan(80)
+    expect(dbScore(unhealthyDb)).toBeLessThan(30)
+  })
+
+  it('scores Billing Health from real bill cancellation rate, not a hardcoded value', () => {
+    const cancelledBill: Bill = { ...bills[0]!, id: 'bill-2', status: 'cancelled', cancelledAt: '2026-01-02T00:00:00.000Z' }
+    const mostlyCancelled = computeBusinessHealth({ ...inputs, bills: [cancelledBill, cancelledBill, cancelledBill, bills[0]!] })
+    const noneCancelled = computeBusinessHealth({ ...inputs, bills: [bills[0]!, bills[0]!] })
+    const billingScore = (health: ReturnType<typeof computeBusinessHealth>) => health.categories.find((c) => c.key === 'billing')!.score
+
+    expect(billingScore(mostlyCancelled)).toBeLessThan(billingScore(noneCancelled))
+  })
+
   it('returns a healthy default when a company has no data yet', () => {
-    const health = computeBusinessHealth({ inventoryItems: [], vendors: [], purchaseOrders: [], marketSignals: [] })
+    const health = computeBusinessHealth({
+      inventoryItems: [],
+      vendors: [],
+      purchaseOrders: [],
+      marketSignals: [],
+      bills: [],
+      systemHealth: null,
+    })
     expect(health.overallScore).toBeGreaterThan(0)
     for (const category of health.categories) {
       expect(category.score).toBeGreaterThanOrEqual(0)
