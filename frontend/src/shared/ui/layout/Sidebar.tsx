@@ -1,8 +1,10 @@
 import { NavLink } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, Sparkles } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { ChevronDown, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react'
 import { NAV_SECTIONS } from '@/app/router/navConfig'
 import { cn } from '@/shared/lib/cn'
 import { useAuth } from '@/features/auth/context/AuthContext'
+import { useLocalStorage } from '@/shared/hooks/useLocalStorage'
 import { Badge } from '../Badge'
 
 interface SidebarProps {
@@ -15,6 +17,11 @@ interface SidebarProps {
 export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: SidebarProps) {
   const { session } = useAuth()
   const role = session?.role
+  // Missing from the map means open — so every section starts expanded (matching the sidebar's
+  // prior always-open behavior) without needing to pre-seed every current and future label.
+  const [openSections, setOpenSections] = useLocalStorage<Record<string, boolean>>('Nexora.sidebar-open-sections', {})
+  const isSectionOpen = (label: string) => openSections[label] !== false
+  const toggleSection = (label: string) => setOpenSections((prev) => ({ ...prev, [label]: !isSectionOpen(label) }))
 
   const visibleSections = NAV_SECTIONS.map((section) => ({
     ...section,
@@ -45,44 +52,65 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Side
           )}
         </div>
 
-        <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
-          {visibleSections.map((section) => (
-            <div key={section.label}>
-              {!collapsed && (
-                <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-                  {section.label}
-                </p>
-              )}
-              <div className="space-y-0.5">
-                {section.items.map((item) => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    end={item.to === '/app'}
-                    onClick={onCloseMobile}
-                    className={({ isActive }) =>
-                      cn(
-                        'group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all',
-                        isActive
-                          ? 'bg-gradient-to-r from-primary/20 to-primary/5 text-primary shadow-[inset_0_1px_0_rgb(255_255_255/0.06)] before:absolute before:inset-y-1 before:left-0 before:w-[3px] before:rounded-full before:bg-gradient-to-b before:from-primary before:to-accent before:shadow-[0_0_8px_rgb(var(--primary)/0.6)]'
-                          : 'text-muted-foreground hover:bg-surface-elevated hover:text-foreground',
-                        collapsed && 'justify-center px-0',
-                      )
-                    }
-                    title={collapsed ? item.label : undefined}
+        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+          {visibleSections.map((section) => {
+            const open = collapsed || isSectionOpen(section.label)
+            return (
+              <div key={section.label} className="space-y-0.5 pb-1">
+                {!collapsed && (
+                  <button
+                    type="button"
+                    onClick={() => toggleSection(section.label)}
+                    className="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70 transition-colors hover:text-muted-foreground"
+                    aria-expanded={open}
                   >
-                    <item.icon className="size-[18px] shrink-0" />
-                    {!collapsed && <span className="truncate">{item.label}</span>}
-                    {!collapsed && item.badgeCount ? (
-                      <Badge tone="danger" className="ml-auto px-1.5 py-0">
-                        {item.badgeCount}
-                      </Badge>
-                    ) : null}
-                  </NavLink>
-                ))}
+                    {section.label}
+                    <ChevronDown className={cn('size-3 shrink-0 transition-transform duration-200', open && 'rotate-180')} />
+                  </button>
+                )}
+                <AnimatePresence initial={false}>
+                  {open && (
+                    <motion.div
+                      initial={collapsed ? false : { height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.18, ease: 'easeOut' }}
+                      className="overflow-hidden"
+                    >
+                      <div className="space-y-0.5">
+                        {section.items.map((item) => (
+                          <NavLink
+                            key={item.to}
+                            to={item.to}
+                            end={item.to === '/app'}
+                            onClick={onCloseMobile}
+                            className={({ isActive }) =>
+                              cn(
+                                'group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all',
+                                isActive
+                                  ? 'bg-gradient-to-r from-primary/20 to-primary/5 text-primary shadow-[inset_0_1px_0_rgb(255_255_255/0.06)] before:absolute before:inset-y-1 before:left-0 before:w-[3px] before:rounded-full before:bg-gradient-to-b before:from-primary before:to-accent before:shadow-[0_0_8px_rgb(var(--primary)/0.6)]'
+                                  : 'text-muted-foreground hover:bg-surface-elevated hover:text-foreground',
+                                collapsed && 'justify-center px-0',
+                              )
+                            }
+                            title={collapsed ? item.label : undefined}
+                          >
+                            <item.icon className="size-[18px] shrink-0" />
+                            {!collapsed && <span className="truncate">{item.label}</span>}
+                            {!collapsed && item.badgeCount ? (
+                              <Badge tone="danger" className="ml-auto px-1.5 py-0">
+                                {item.badgeCount}
+                              </Badge>
+                            ) : null}
+                          </NavLink>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </nav>
 
         <div className="border-t border-border p-3">

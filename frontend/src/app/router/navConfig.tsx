@@ -16,6 +16,7 @@ import {
   HelpCircle,
   Users,
   History,
+  Lightbulb,
   type LucideIcon,
 } from 'lucide-react'
 import type { Role } from '@/shared/lib/permissions'
@@ -53,6 +54,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: 'Warehouses', to: '/app/inventory/warehouses', icon: Warehouse },
       { label: 'Stock Movements', to: '/app/inventory/movements', icon: History, roles: ['admin'] },
       { label: 'Purchase Orders', to: '/app/procurement/purchase-orders', icon: ShoppingCart },
+      { label: 'Recommendations', to: '/app/procurement/recommendations', icon: Lightbulb },
       { label: 'Billing', to: '/app/billing', icon: Receipt },
       { label: 'Vendors', to: '/app/vendors', icon: Truck },
     ],
