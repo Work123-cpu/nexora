@@ -8,6 +8,7 @@ import java.util.List;
 
 public record PurchaseOrderInput(
         @NotBlank String vendorId,
+        @NotBlank String warehouseId,
         @NotEmpty List<PurchaseOrderLineItemInput> items,
         Instant expectedDeliveryDate,
         String createdBy,

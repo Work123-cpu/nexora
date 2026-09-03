@@ -10,6 +10,7 @@ export interface GetPurchaseOrdersParams extends QueryParams {
 
 export interface PurchaseOrderInput {
   vendorId: string
+  warehouseId: string
   items: PurchaseOrderLineItem[]
   expectedDeliveryDate: string
   createdBy: string
@@ -22,6 +23,7 @@ export interface BackendPurchaseOrder {
   id: string
   poNumber: string
   vendorId: string
+  warehouseId: string
   status: string
   items: PurchaseOrderLineItem[]
   totalAmount: number
@@ -39,6 +41,7 @@ export function fromBackendPO(po: BackendPurchaseOrder): PurchaseOrder {
     id: po.id,
     poNumber: po.poNumber,
     vendorId: po.vendorId,
+    warehouseId: po.warehouseId,
     status: po.status as PurchaseOrderStatus,
     items: po.items,
     totalAmount: po.totalAmount,

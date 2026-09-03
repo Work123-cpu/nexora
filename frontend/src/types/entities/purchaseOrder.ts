@@ -25,6 +25,7 @@ export interface PurchaseOrder {
   id: string
   poNumber: string
   vendorId: string
+  warehouseId: string
   status: PurchaseOrderStatus
   items: PurchaseOrderLineItem[]
   totalAmount: number

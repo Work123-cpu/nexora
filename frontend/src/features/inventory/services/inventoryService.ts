@@ -47,6 +47,34 @@ export interface BackendInventoryItem {
   lastRestockedAt: string
 }
 
+export interface BackendStockMovement {
+  id: string
+  itemType: string
+  itemId: string
+  itemName: string
+  warehouseId: string
+  quantity: number
+  unit: string
+  source: string
+  sourceReferenceId?: string
+  createdAt: string
+}
+
+function fromBackendMovement(m: BackendStockMovement): StockMovement {
+  return {
+    id: m.id,
+    itemType: m.itemType as InventoryItemType,
+    itemId: m.itemId,
+    itemName: m.itemName,
+    warehouseId: m.warehouseId,
+    quantity: m.quantity,
+    unit: m.unit,
+    source: m.source as StockMovement['source'],
+    sourceReferenceId: m.sourceReferenceId,
+    createdAt: m.createdAt,
+  }
+}
+
 /** Exported so warehouseService's getInventoryForWarehouse can reuse this without duplicating the mapping. */
 export function fromBackendInventoryItem(item: BackendInventoryItem): InventoryItem {
   return {
@@ -83,10 +111,14 @@ export const inventoryService = {
   getInventoryItemById: (id: string): Promise<InventoryItem> =>
     apiClient.get<BackendInventoryItem>(`/inventory/${id}`).then(fromBackendInventoryItem),
 
-  // Stock movement history and trend charts aren't modeled on the backend yet — report no history
-  // rather than fabricating one. Revisit once the backend logs per-transaction movements.
-  getMovements: async (_inventoryItemId: string): Promise<StockMovement[]> => [],
+  getMovements: (itemId: string): Promise<StockMovement[]> =>
+    apiClient.get<BackendStockMovement[]>(`/inventory/movements/by-item/${itemId}`).then((rows) => rows.map(fromBackendMovement)),
 
+  /** Company-wide, admin-only — every stock addition, for the Stock Movements report. */
+  getAllMovements: (): Promise<StockMovement[]> =>
+    apiClient.get<BackendStockMovement[]>('/inventory/movements').then((rows) => rows.map(fromBackendMovement)),
+
+  // Trend charts aren't modeled on the backend yet — report no trend rather than fabricating one.
   getTrend: async (_inventoryItemId: string): Promise<undefined> => undefined,
 
   createInventoryItem: (input: InventoryItemInput): Promise<InventoryItem> =>

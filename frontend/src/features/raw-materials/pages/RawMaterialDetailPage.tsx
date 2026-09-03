@@ -26,7 +26,7 @@ export function RawMaterialDetailPage() {
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   const inventory = inventoryData?.items.find((i) => i.itemId === material?.id)
-  const { data: movementsData } = useInventoryMovements(inventory?.id)
+  const { data: movementsData } = useInventoryMovements(material?.id)
   const { data: vendor } = useVendor(material?.primaryVendorId)
   const { data: bomsData } = useBOMs({ pageSize: 10000 })
   const { data: productsData } = useProducts({ pageSize: 10000 })
@@ -180,10 +180,11 @@ export function RawMaterialDetailPage() {
                 <ul className="space-y-2 text-sm">
                   {movements.map((m) => (
                     <li key={m.id} className="flex items-center justify-between">
-                      <span className="text-muted-foreground">{m.reason}</span>
-                      <span className={m.quantity < 0 ? 'font-medium text-danger' : 'font-medium text-success'}>
-                        {m.quantity > 0 ? '+' : ''}
-                        {m.quantity}
+                      <span className="text-muted-foreground">
+                        {m.source === 'po_receipt' ? 'Purchase order received' : 'Manual stock entry'} · {formatDate(m.createdAt)}
+                      </span>
+                      <span className="font-medium text-success">
+                        +{formatNumber(m.quantity)} {m.unit}
                       </span>
                     </li>
                   ))}

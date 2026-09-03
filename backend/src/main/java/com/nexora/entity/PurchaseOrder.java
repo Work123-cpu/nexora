@@ -22,6 +22,9 @@ public class PurchaseOrder {
     @Column(name = "vendor_id", nullable = false)
     private String vendorId;
 
+    @Column(name = "warehouse_id", nullable = false)
+    private String warehouseId;
+
     @Column(nullable = false)
     private String status = "draft";
 
@@ -59,6 +62,8 @@ public class PurchaseOrder {
     public void setPoNumber(String poNumber) { this.poNumber = poNumber; }
     public String getVendorId() { return vendorId; }
     public void setVendorId(String vendorId) { this.vendorId = vendorId; }
+    public String getWarehouseId() { return warehouseId; }
+    public void setWarehouseId(String warehouseId) { this.warehouseId = warehouseId; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
     public List<PurchaseOrderLineItem> getItems() { return items; }

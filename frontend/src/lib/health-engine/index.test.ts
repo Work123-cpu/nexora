@@ -28,7 +28,7 @@ const vendors: Vendor[] = [
 
 const purchaseOrders: PurchaseOrder[] = [
   {
-    id: 'po-1', poNumber: 'PO-1001', vendorId: 'vnd-1', status: 'pending_approval',
+    id: 'po-1', poNumber: 'PO-1001', vendorId: 'vnd-1', warehouseId: 'wh-1', status: 'pending_approval',
     items: [{ rawMaterialId: 'rm-1', rawMaterialName: 'Wheat Flour', quantity: 200, unit: 'kg', unitCost: 1.2 }],
     totalAmount: 240, createdAt: '2026-01-01T00:00:00.000Z', expectedDeliveryDate: '2026-01-10T00:00:00.000Z',
     createdBy: 'user-1', timeline: [{ status: 'draft', date: '2026-01-01T00:00:00.000Z' }],

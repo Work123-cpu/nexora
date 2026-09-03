@@ -16,14 +16,20 @@ export interface InventoryItem {
   lastRestockedAt: string
 }
 
-export type StockMovementType = 'inbound' | 'outbound' | 'adjustment'
+export type StockMovementSource = 'po_receipt' | 'manual'
 
+/** Every stock-increasing event — a purchase order marked Received, or a manual "Add Stock"/
+ * adjustment entry. Outbound consumption isn't tracked here (that's inferred from bills), so
+ * quantity is always positive. */
 export interface StockMovement {
   id: string
-  inventoryItemId: string
+  itemType: InventoryItemType
+  itemId: string
   itemName: string
-  type: StockMovementType
+  warehouseId: string
   quantity: number
-  date: string
-  reason: string
+  unit: string
+  source: StockMovementSource
+  sourceReferenceId?: string
+  createdAt: string
 }

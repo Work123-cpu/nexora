@@ -5,24 +5,16 @@ import { EmptyState } from '@/shared/ui/EmptyState'
 import { CheckCircle2 } from 'lucide-react'
 import { useAllRecommendations } from '@/shared/hooks/useRecommendations'
 import { useToast } from '@/shared/ui/Toast'
-import { aiService } from '@/services/ai'
-import { useState } from 'react'
+import { useExplainDialog } from '@/shared/hooks/useExplainDialog'
 
 export function AIRecommendationsSection() {
   const { recommendations: allRecommendations } = useAllRecommendations()
   const recommendations = allRecommendations.slice(0, 3)
   const { toast } = useToast()
-  const [explaining, setExplaining] = useState<string | null>(null)
+  const { explain, dialog } = useExplainDialog()
 
   const handleAccept = (title: string) => {
     toast({ title: 'Action queued', description: `"${title}" was added to the AI Action Center for approval.`, tone: 'success' })
-  }
-
-  const handleExplain = async (id: string, subject: string) => {
-    setExplaining(id)
-    const res = await aiService.explain({ subject, data: {} })
-    toast({ title: 'Nexora explains', description: res.explanation, tone: 'info' })
-    setExplaining(null)
   }
 
   return (
@@ -42,12 +34,12 @@ export function AIRecommendationsSection() {
               key={rec.id}
               recommendation={rec}
               onAccept={() => handleAccept(rec.title)}
-              onExplainMore={() => handleExplain(rec.id, rec.title)}
-              className={explaining === rec.id ? 'opacity-60' : ''}
+              onExplainMore={() => explain(rec.title)}
             />
           ))}
         </div>
       )}
+      {dialog}
     </div>
   )
 }

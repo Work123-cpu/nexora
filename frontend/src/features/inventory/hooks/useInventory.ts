@@ -5,7 +5,8 @@ export const inventoryKeys = {
   all: ['inventory'] as const,
   list: (params: GetInventoryParams) => [...inventoryKeys.all, 'list', params] as const,
   detail: (id: string) => [...inventoryKeys.all, 'detail', id] as const,
-  movements: (id: string) => [...inventoryKeys.all, 'movements', id] as const,
+  movements: (itemId: string) => [...inventoryKeys.all, 'movements', itemId] as const,
+  allMovements: () => [...inventoryKeys.all, 'movements', 'all'] as const,
   trend: (id: string) => [...inventoryKeys.all, 'trend', id] as const,
 }
 
@@ -25,11 +26,19 @@ export function useInventoryItem(id: string | undefined) {
   })
 }
 
-export function useInventoryMovements(id: string | undefined) {
+export function useInventoryMovements(itemId: string | undefined) {
   return useQuery({
-    queryKey: inventoryKeys.movements(id ?? ''),
-    queryFn: () => inventoryService.getMovements(id!),
-    enabled: Boolean(id),
+    queryKey: inventoryKeys.movements(itemId ?? ''),
+    queryFn: () => inventoryService.getMovements(itemId!),
+    enabled: Boolean(itemId),
+  })
+}
+
+/** Company-wide, admin-only — powers the Stock Movements report. */
+export function useAllStockMovements() {
+  return useQuery({
+    queryKey: inventoryKeys.allMovements(),
+    queryFn: () => inventoryService.getAllMovements(),
   })
 }
 

@@ -11,6 +11,7 @@ import { useToast } from '@/shared/ui/Toast'
 import { formatCurrency } from '@/shared/lib/formatters'
 import { useVendors } from '@/features/vendors/hooks/useVendors'
 import { useRawMaterials } from '@/features/raw-materials/hooks/useRawMaterials'
+import { useWarehouses } from '@/features/warehouse/hooks/useWarehouses'
 import { useAuth } from '@/features/auth/context/AuthContext'
 import { useCreatePurchaseOrder } from '../hooks/usePurchaseOrders'
 import type { PurchaseOrderLineItem } from '@/types/entities/purchaseOrder'
@@ -29,8 +30,10 @@ export function PurchaseOrderCreatePage() {
 
   const { data: vendorsData } = useVendors({ pageSize: 10000 })
   const { data: materialsData } = useRawMaterials({ pageSize: 10000 })
+  const { data: warehousesData } = useWarehouses({ pageSize: 10000 })
   const vendors = vendorsData?.items ?? []
   const rawMaterials = materialsData?.items ?? []
+  const warehouses = warehousesData?.items ?? []
   const getVendorById = (id: string) => vendors.find((v) => v.id === id)
   const getRawMaterialById = (id: string) => rawMaterials.find((rm) => rm.id === id)
 
@@ -39,6 +42,7 @@ export function PurchaseOrderCreatePage() {
   const prefillMaterial = prefillMaterialId ? getRawMaterialById(prefillMaterialId) : undefined
 
   const [vendorId, setVendorId] = useState('')
+  const [warehouseId, setWarehouseId] = useState('')
   const [lines, setLines] = useState<DraftLine[]>([])
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState(() => {
     const date = new Date()
@@ -51,6 +55,11 @@ export function PurchaseOrderCreatePage() {
     setVendorId(prefillMaterial?.primaryVendorId ?? vendors[0]!.id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vendors])
+
+  useEffect(() => {
+    if (!warehouseId && warehouses.length > 0) setWarehouseId(warehouses[0]!.id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [warehouses])
 
   useEffect(() => {
     if (lines.length > 0 || rawMaterials.length === 0) return
@@ -82,6 +91,7 @@ export function PurchaseOrderCreatePage() {
     e.preventDefault()
     const po = await createPO.mutateAsync({
       vendorId,
+      warehouseId,
       items: lineItems,
       expectedDeliveryDate: new Date(expectedDeliveryDate).toISOString(),
       createdBy: session?.user?.name ?? 'Unknown user',
@@ -103,11 +113,21 @@ export function PurchaseOrderCreatePage() {
           <CardHeader>
             <div>
               <CardTitle>Supplier Selection</CardTitle>
-              <CardDescription className="mt-1">Choose a vendor to purchase from. Materials are filtered to items they supply.</CardDescription>
+              <CardDescription className="mt-1">
+                Choose a vendor to purchase from and the warehouse this order will be received into. Materials are
+                filtered to items the vendor supplies.
+              </CardDescription>
             </div>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
             <Select label="Vendor" options={vendors.map((v) => ({ label: v.name, value: v.id }))} value={vendorId} onChange={(e) => setVendorId(e.target.value)} />
+            <Select
+              label="Receiving warehouse"
+              options={warehouses.map((w) => ({ label: w.name, value: w.id }))}
+              value={warehouseId}
+              onChange={(e) => setWarehouseId(e.target.value)}
+              placeholder={warehouses.length === 0 ? 'No warehouses yet' : undefined}
+            />
             <Input label="Expected delivery date" type="date" value={expectedDeliveryDate} onChange={(e) => setExpectedDeliveryDate(e.target.value)} />
           </CardContent>
           {vendor && (

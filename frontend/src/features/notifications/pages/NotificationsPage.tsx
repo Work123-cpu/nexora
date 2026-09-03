@@ -7,9 +7,8 @@ import { Card, CardContent } from '@/shared/ui/Card'
 import { Badge, type BadgeTone } from '@/shared/ui/Badge'
 import { FilterBar, FilterChip } from '@/shared/ui/FilterBar'
 import { EmptyState } from '@/shared/ui/EmptyState'
-import { useToast } from '@/shared/ui/Toast'
 import { formatRelativeTime } from '@/shared/lib/formatters'
-import { aiService } from '@/services/ai'
+import { useExplainDialog } from '@/shared/hooks/useExplainDialog'
 import { useNotifications } from '../hooks/useNotifications'
 import type { AppNotification, NotificationPriority } from '@/types/entities/notification'
 
@@ -17,9 +16,8 @@ const PRIORITY_TONE: Record<NotificationPriority, BadgeTone> = { critical: 'dang
 
 export function NotificationsPage() {
   const { notifications, unread, markRead, markAllRead } = useNotifications()
-  const { toast } = useToast()
   const [priorityFilter, setPriorityFilter] = useState<NotificationPriority | undefined>(undefined)
-  const [explaining, setExplaining] = useState<string | null>(null)
+  const { explain, dialog } = useExplainDialog()
 
   const filtered = notifications.filter((n) => !priorityFilter || n.priority === priorityFilter)
   const criticalCount = notifications.filter((n) => n.priority === 'critical').length
@@ -27,17 +25,7 @@ export function NotificationsPage() {
 
   // Grounds the LLM in this alert's real numbers (already embedded in message/category/priority,
   // sourced from live backend inventory/PO/vendor data) rather than asking it to invent context.
-  const handleExplain = async (n: AppNotification) => {
-    setExplaining(n.id)
-    try {
-      const res = await aiService.explain({ subject: n.title, data: { message: n.message, category: n.category, priority: n.priority } })
-      toast({ title: 'Nexora explains', description: res.explanation, tone: 'info' })
-    } catch {
-      toast({ title: 'Could not reach the AI service', description: 'Try again in a moment.', tone: 'error' })
-    } finally {
-      setExplaining(null)
-    }
-  }
+  const handleExplain = (n: AppNotification) => explain(n.title, { message: n.message, category: n.category, priority: n.priority })
 
   return (
     <div>
@@ -77,7 +65,7 @@ export function NotificationsPage() {
                     <p className="mt-1 text-[11px] text-muted-foreground">{formatRelativeTime(n.createdAt)}</p>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
-                    <Button size="sm" variant="ghost" isLoading={explaining === n.id} onClick={() => handleExplain(n)}>
+                    <Button size="sm" variant="ghost" onClick={() => handleExplain(n)}>
                       Ask AI to explain
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => markRead(n.id)}>
@@ -126,7 +114,7 @@ export function NotificationsPage() {
                   <p className="mt-1 text-[11px] text-muted-foreground">{formatRelativeTime(n.createdAt)}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
-                  <Button size="sm" variant="ghost" isLoading={explaining === n.id} onClick={() => handleExplain(n)}>
+                  <Button size="sm" variant="ghost" onClick={() => handleExplain(n)}>
                     Ask AI to explain
                   </Button>
                   {!n.read && (
@@ -140,6 +128,7 @@ export function NotificationsPage() {
           ))}
         </div>
       )}
+      {dialog}
     </div>
   )
 }
