@@ -14,12 +14,6 @@ public class Company {
     @Column(nullable = false)
     private String name;
 
-    @Column(name = "currency_code", nullable = false)
-    private String currencyCode = "INR";
-
-    @Column(nullable = false)
-    private String locale = "en-IN";
-
     // Nullable — set only once the user adds a free Alpha Vantage key in Settings. Powers
     // MarketDataService's server-side price-move notifications; the frontend also keeps its own
     // copy in localStorage for the client-side Market Intelligence page (see SettingsPage.tsx).
@@ -38,10 +32,6 @@ public class Company {
     public void setId(String id) { this.id = id; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
-    public String getCurrencyCode() { return currencyCode; }
-    public void setCurrencyCode(String currencyCode) { this.currencyCode = currencyCode; }
-    public String getLocale() { return locale; }
-    public void setLocale(String locale) { this.locale = locale; }
     public String getAlphaVantageApiKey() { return alphaVantageApiKey; }
     public void setAlphaVantageApiKey(String alphaVantageApiKey) { this.alphaVantageApiKey = alphaVantageApiKey; }
     public String getDataGovInApiKey() { return dataGovInApiKey; }
