@@ -104,10 +104,15 @@
   --color-ring: rgb(var(--ring));
   --color-overlay: rgb(var(--overlay));
 
-  --radius-sm: 0.375rem;
-  --radius-md: 0.625rem;
-  --radius-lg: 0.875rem;
-  --radius-xl: 1.25rem;
+  /* xl used to be the top of the scale at 1.25rem, with 2xl/3xl left to Tailwind's smaller
+     unmodified defaults — so Card/Dialog (rounded-2xl) rendered LESS rounded than the buttons
+     inside them. Extending the scale here keeps every size properly bigger than the last. */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.375rem;
+  --radius-2xl: 1.75rem;
+  --radius-3xl: 2.125rem;
 }
 
 @layer base {
