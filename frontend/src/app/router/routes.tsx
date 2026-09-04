@@ -29,6 +29,10 @@ const BomListPage = lazy(() => import('@/features/bom/pages/BomListPage').then((
 const BomCreatePage = lazy(() => import('@/features/bom/pages/BomCreatePage').then((m) => ({ default: m.BomCreatePage })))
 const BomEditPage = lazy(() => import('@/features/bom/pages/BomEditPage').then((m) => ({ default: m.BomEditPage })))
 
+const ProductionPlanningPage = lazy(() =>
+  import('@/features/production/pages/ProductionPlanningPage').then((m) => ({ default: m.ProductionPlanningPage })),
+)
+
 const InventoryDashboardPage = lazy(() => import('@/features/inventory/pages/InventoryDashboardPage').then((m) => ({ default: m.InventoryDashboardPage })))
 const InventoryAddStockPage = lazy(() => import('@/features/inventory/pages/InventoryAddStockPage').then((m) => ({ default: m.InventoryAddStockPage })))
 const InventoryEditPage = lazy(() => import('@/features/inventory/pages/InventoryEditPage').then((m) => ({ default: m.InventoryEditPage })))
@@ -96,6 +100,7 @@ export const routes: RouteObject[] = [
       { path: 'bom', element: <BomListPage /> },
       { path: 'bom/new', element: <BomCreatePage /> },
       { path: 'bom/:id/edit', element: <BomEditPage /> },
+      { path: 'production/planning', element: <ProductionPlanningPage /> },
       { path: 'inventory', element: <InventoryDashboardPage /> },
       { path: 'inventory/add-stock', element: <InventoryAddStockPage /> },
       { path: 'inventory/movements', element: <StockMovementsPage /> },

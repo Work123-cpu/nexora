@@ -17,6 +17,7 @@ import {
   Users,
   History,
   Lightbulb,
+  Factory,
   type LucideIcon,
 } from 'lucide-react'
 import type { Role } from '@/shared/lib/permissions'
@@ -45,6 +46,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: 'Products', to: '/app/products', icon: Package },
       { label: 'Raw Materials', to: '/app/raw-materials', icon: Boxes },
       { label: 'Bill of Materials', to: '/app/bom', icon: ListTree },
+      { label: 'Production Planning', to: '/app/production/planning', icon: Factory },
     ],
   },
   {
