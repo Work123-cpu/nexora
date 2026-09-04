@@ -42,7 +42,7 @@ export function AppShellLayout() {
         mobileOpen={mobileOpen}
         onCloseMobile={() => setMobileOpen(false)}
       />
-      <div className="relative flex min-h-screen flex-1 flex-col overflow-hidden">
+      <div className="relative flex min-h-screen flex-1 flex-col overflow-x-hidden">
         <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden>
           <div className="ambient-orb -left-24 -top-32 size-[420px] bg-primary" />
           <div className="ambient-orb -right-32 top-1/4 size-[380px] bg-accent" />
