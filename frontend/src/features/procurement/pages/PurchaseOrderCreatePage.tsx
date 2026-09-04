@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Plus, Save, Trash2 } from 'lucide-react'
+import { Plus, Save, Sparkles, Trash2 } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/layout/PageHeader'
 import { Breadcrumbs } from '@/shared/ui/Breadcrumbs'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/Card'
 import { Select } from '@/shared/ui/Select'
 import { Input } from '@/shared/ui/Input'
 import { Button } from '@/shared/ui/Button'
+import { Badge } from '@/shared/ui/Badge'
 import { useToast } from '@/shared/ui/Toast'
 import { formatCurrency } from '@/shared/lib/formatters'
 import { useVendors } from '@/features/vendors/hooks/useVendors'
@@ -36,6 +37,12 @@ export function PurchaseOrderCreatePage() {
   const warehouses = warehousesData?.items ?? []
   const getVendorById = (id: string) => vendors.find((v) => v.id === id)
   const getRawMaterialById = (id: string) => rawMaterials.find((rm) => rm.id === id)
+
+  // Present only when this page was opened from a reorder/safety-stock recommendation (see
+  // buildRestockAction.ts) -- drives the "Restocking X" banner below, purely for display so
+  // "auto-selected" isn't just a silently pre-filled form the user has to notice on their own.
+  const restockingFor = searchParams.get('for') ?? undefined
+  const restockSource = searchParams.get('source') ?? undefined
 
   const prefillVendorId = searchParams.get('vendorId') ?? undefined
   const prefillMaterialId = searchParams.get('materialId') ?? undefined
@@ -128,10 +135,35 @@ export function PurchaseOrderCreatePage() {
       />
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {restockingFor && (
+          <Card className="border-primary/30 bg-primary-soft/40">
+            <CardContent className="flex items-start gap-3 py-4">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">
+                <Sparkles className="size-4.5" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground">Restocking {restockingFor}</p>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  {restockSource === 'bom'
+                    ? "Vendor and materials below were auto-selected from this product's Bill of Materials — review and edit anything before submitting."
+                    : 'Vendor and quantity below were pre-filled from this reorder recommendation — review and edit before submitting.'}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <Card>
           <CardHeader>
             <div>
-              <CardTitle>Supplier Selection</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                Supplier Selection
+                {restockingFor && (
+                  <Badge tone="info" className="font-normal">
+                    Auto-selected
+                  </Badge>
+                )}
+              </CardTitle>
               <CardDescription className="mt-1">
                 Choose a vendor to purchase from and the warehouse this order will be received into. Materials are
                 filtered to items the vendor supplies.
@@ -162,7 +194,14 @@ export function PurchaseOrderCreatePage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Materials</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              Materials
+              {restockingFor && (
+                <Badge tone="info" className="font-normal">
+                  Auto-selected
+                </Badge>
+              )}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">

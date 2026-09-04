@@ -27,8 +27,17 @@ export function buildRestockAction(
   rawMaterials: RawMaterial[],
   inventoryItems: InventoryItem[],
 ): RestockAction {
+  // `for`/`source` carry through to PurchaseOrderCreatePage purely for display -- a banner
+  // naming what's being restocked and why this vendor/these materials were picked, so "review or
+  // edit" has something concrete to review against instead of a silently pre-filled form.
+  const forParam = `for=${encodeURIComponent(rec.entityName)}`
+
   if (rec.entityType === 'rawMaterial') {
-    return { type: 'purchase-order', url: `/app/procurement/purchase-orders/new?materialId=${rec.entityId}&quantity=${quantity}`, omittedCount: 0 }
+    return {
+      type: 'purchase-order',
+      url: `/app/procurement/purchase-orders/new?materialId=${rec.entityId}&quantity=${quantity}&source=direct&${forParam}`,
+      omittedCount: 0,
+    }
   }
 
   const bom = boms.find((b) => b.productId === rec.entityId)
@@ -49,7 +58,7 @@ export function buildRestockAction(
     const materialsParam = included.map((l) => `${l.material.id}:${l.neededQty}`).join(',')
     return {
       type: 'purchase-order',
-      url: `/app/procurement/purchase-orders/new?vendorId=${primaryVendorId}&materials=${encodeURIComponent(materialsParam)}`,
+      url: `/app/procurement/purchase-orders/new?vendorId=${primaryVendorId}&materials=${encodeURIComponent(materialsParam)}&source=bom&${forParam}`,
       omittedCount: materialLines.length - included.length,
     }
   }
