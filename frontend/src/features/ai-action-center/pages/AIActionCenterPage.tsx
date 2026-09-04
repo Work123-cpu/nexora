@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { CheckCircle2, Inbox, RotateCcw, XCircle } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/layout/PageHeader'
 import { Button } from '@/shared/ui/Button'
@@ -40,7 +41,23 @@ function ActionRow({ recommendation, onReview }: { recommendation: AIRecommendat
 export function AIActionCenterPage() {
   const { pending, approved, dismissed, decide, resetQueue } = useActionQueue()
   const { toast } = useToast()
+  const navigate = useNavigate()
   const [selected, setSelected] = useState<AIRecommendation | null>(null)
+
+  /** reorder/safety-stock recommendations have a real, single action to hand off to — the same
+   * "Accept" shortcut Procurement Recommendations already uses (pre-filled PO, quantity parsed
+   * from suggestedAction). The other categories (supplier-risk, market-impact, production-plan)
+   * have no equivalent one-click action, so approving them just records the decision. */
+  const handleApprove = (recommendation: AIRecommendation) => {
+    decide(recommendation.id, 'approved')
+    if (recommendation.category === 'reorder' || recommendation.category === 'safety-stock') {
+      const quantityMatch = recommendation.suggestedAction.match(/([\d.]+)\s*(\w+)?/)
+      const quantity = quantityMatch ? Math.round(Number(quantityMatch[1])) : 100
+      navigate(`/app/procurement/purchase-orders/new?materialId=${recommendation.entityId}&quantity=${quantity}`)
+      return
+    }
+    toast({ title: 'Action marked as approved', tone: 'success' })
+  }
 
   return (
     <div>
@@ -109,10 +126,7 @@ export function AIActionCenterPage() {
       <ApprovalDialog
         recommendation={selected}
         onClose={() => setSelected(null)}
-        onApprove={(id) => {
-          decide(id, 'approved')
-          toast({ title: 'Action approved', tone: 'success' })
-        }}
+        onApprove={handleApprove}
         onDismiss={(id) => {
           decide(id, 'dismissed')
           toast({ title: 'Action dismissed', tone: 'info' })

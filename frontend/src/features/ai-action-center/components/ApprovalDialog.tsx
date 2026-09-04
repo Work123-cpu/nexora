@@ -9,10 +9,14 @@ import type { AIRecommendation } from '@/lib/recommendation-engine/types'
 interface ApprovalDialogProps {
   recommendation: AIRecommendation | null
   onClose: () => void
-  onApprove: (id: string) => void
+  onApprove: (recommendation: AIRecommendation) => void
   onDismiss: (id: string) => void
 }
 
+/** reorder/safety-stock approvals navigate straight to a pre-filled Purchase Order instead of
+ * showing this confirmation screen (see onApprove below) — there's a real action to hand off to.
+ * The other categories have no equivalent single action to take, so this screen is honest about
+ * only having recorded a reviewed/agreed decision, not that anything was carried out. */
 export function ApprovalDialog({ recommendation, onClose, onDismiss, onApprove }: ApprovalDialogProps) {
   const [confirmed, setConfirmed] = useState(false)
 
@@ -25,13 +29,14 @@ export function ApprovalDialog({ recommendation, onClose, onDismiss, onApprove }
 
   if (confirmed) {
     return (
-      <Dialog open onClose={handleClose} title="Action approved">
+      <Dialog open onClose={handleClose} title="Marked as approved">
         <div className="flex flex-col items-center gap-3 py-4 text-center">
           <div className="flex size-14 items-center justify-center rounded-2xl bg-success-soft text-success">
             <CheckCircle2 className="size-7" />
           </div>
           <p className="text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">{recommendation.suggestedAction}</span> has been approved and queued for execution.
+            <span className="font-medium text-foreground">{recommendation.suggestedAction}</span> has been marked approved. There's no automated action for this
+            recommendation type — you'll still need to carry it out yourself.
           </p>
           <Button onClick={handleClose}>Done</Button>
         </div>
@@ -59,8 +64,11 @@ export function ApprovalDialog({ recommendation, onClose, onDismiss, onApprove }
           <Button
             leftIcon={<ShieldCheck className="size-4" />}
             onClick={() => {
-              onApprove(recommendation.id)
-              setConfirmed(true)
+              const actionable = recommendation.category === 'reorder' || recommendation.category === 'safety-stock'
+              onApprove(recommendation)
+              // Actionable categories navigate to a pre-filled PO instead (see AIActionCenterPage),
+              // which unmounts this dialog — no confirmation screen needed on top of that.
+              if (!actionable) setConfirmed(true)
             }}
           >
             Approve Action
