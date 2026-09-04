@@ -92,8 +92,13 @@ export const apiClient = {
       signal: options?.signal,
     }).then(handle<T>),
 
-  delete: <T>(path: string, options?: RequestOptions): Promise<T> =>
-    fetch(`${BASE_URL}${path}${buildQuery(options?.params)}`, { method: 'DELETE', headers: authHeaders(), signal: options?.signal }).then(handle<T>),
+  delete: <T>(path: string, body?: unknown, options?: RequestOptions): Promise<T> =>
+    fetch(`${BASE_URL}${path}${buildQuery(options?.params)}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: body ? JSON.stringify(body) : undefined,
+      signal: options?.signal,
+    }).then(handle<T>),
 }
 
 export function setAuthToken(token: string | null): void {

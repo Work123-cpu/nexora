@@ -1,11 +1,12 @@
 import { useRef, useState } from 'react'
-import { Bot, Building2, LogOut, Moon, Palette, Radio, RefreshCw, Sun, Monitor, Upload } from 'lucide-react'
+import { AlertTriangle, Bot, Building2, Download, LogOut, Moon, Palette, Radio, RefreshCw, Sun, Monitor, Trash2, Upload } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/layout/PageHeader'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/Card'
 import { Select } from '@/shared/ui/Select'
 import { Input } from '@/shared/ui/Input'
 import { Button } from '@/shared/ui/Button'
 import { Avatar } from '@/shared/ui/Avatar'
+import { Dialog } from '@/shared/ui/Dialog'
 import { useToast } from '@/shared/ui/Toast'
 import { useTheme, type ThemeMode } from '@/theme/ThemeProvider'
 import { useAuth } from '@/features/auth/context/AuthContext'
@@ -14,6 +15,8 @@ import { cn } from '@/shared/lib/cn'
 import { CURRENCY_LOCALE_PRESETS, getCompanyConfig, setCompanyConfig } from '@/shared/lib/companyConfig'
 import { isDesktopApp, getDesktopBridge } from '@/shared/lib/electronBridge'
 import { apiClient } from '@/shared/lib/apiClient'
+import { exportManyAsCsvZip } from '@/shared/lib/exportZip'
+import { fetchCompanyExport } from '../services/companyExportService'
 import { AccountNav } from '../components/AccountNav'
 
 const THEME_OPTIONS: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
@@ -24,7 +27,7 @@ const THEME_OPTIONS: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
 
 export function SettingsPage() {
   const { mode, setMode } = useTheme()
-  const { logout } = useAuth()
+  const { logout, session } = useAuth()
   const { toast } = useToast()
   const navigate = useNavigate()
   const [company, setCompany] = useState(() => getCompanyConfig())
@@ -33,6 +36,56 @@ export function SettingsPage() {
   const [isSavingGroqKey, setIsSavingGroqKey] = useState(false)
   const [groqKeySaved, setGroqKeySaved] = useState(false)
   const [isRelaunching, setIsRelaunching] = useState(false)
+
+  const isAdmin = session?.role === 'admin'
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
+  const [hasExported, setHasExported] = useState(false)
+  const [confirmName, setConfirmName] = useState('')
+  const [deletePassword, setDeletePassword] = useState('')
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  const closeDeleteDialog = () => {
+    setDeleteDialogOpen(false)
+    setHasExported(false)
+    setConfirmName('')
+    setDeletePassword('')
+    setDeleteError(null)
+  }
+
+  const handleExportData = async () => {
+    setIsExporting(true)
+    try {
+      const data = await fetchCompanyExport()
+      const dateStamp = new Date().toISOString().slice(0, 10)
+      await exportManyAsCsvZip(`${company.name || 'nexora-company'}-export-${dateStamp}`, data)
+      setHasExported(true)
+      toast({ title: 'Export downloaded', description: 'A ZIP with one readable CSV per record type — products, materials, vendors, orders, bills, and more.', tone: 'success' })
+    } catch {
+      toast({ title: 'Export failed', description: 'Could not fetch your company data. Try again before deleting.', tone: 'error' })
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  const handleDeleteCompany = async () => {
+    setDeleteError(null)
+    if (!deletePassword) {
+      setDeleteError('Enter your password to confirm.')
+      return
+    }
+    setIsDeleting(true)
+    try {
+      await apiClient.delete('/company', { password: deletePassword })
+      logout()
+      navigate('/login')
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Could not delete the company.')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
 
   const currencyPresetValue = `${company.currencyCode}|${company.locale}`
 
@@ -304,7 +357,94 @@ export function SettingsPage() {
             </Button>
           </CardContent>
         </Card>
+
+        {isAdmin && (
+          <Card className="border-danger/30">
+            <CardHeader>
+              <div>
+                <CardTitle className="text-danger">Danger Zone</CardTitle>
+                <CardDescription className="mt-1">
+                  Permanently delete {company.name || 'this company'} — every product, material, vendor, warehouse,
+                  purchase order, bill, and record tied to it. This removes every team member's access too, and
+                  cannot be undone.
+                </CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Button variant="danger" leftIcon={<Trash2 className="size-4" />} onClick={() => setDeleteDialogOpen(true)}>
+                Delete company
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </div>
+
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={closeDeleteDialog}
+        title="Delete this company"
+        description="This is permanent — there is no undo."
+        className="max-w-lg"
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-2.5 rounded-xl border border-danger/30 bg-danger-soft p-3 text-sm text-danger">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+            <p>
+              Deleting <strong>{company.name || 'this company'}</strong> removes every product, raw material, BOM,
+              vendor, warehouse, purchase order, bill, inventory record, and team member's access — permanently.
+            </p>
+          </div>
+
+          <div>
+            <p className="mb-2 text-sm font-medium text-foreground">1. Export your data first</p>
+            <Button
+              type="button"
+              variant={hasExported ? 'secondary' : 'outline'}
+              size="sm"
+              leftIcon={<Download className="size-3.5" />}
+              onClick={handleExportData}
+              isLoading={isExporting}
+            >
+              {hasExported ? 'Exported — download again' : 'Export all company data'}
+            </Button>
+          </div>
+
+          <div>
+            <p className="mb-2 text-sm font-medium text-foreground">
+              2. Type <strong>{company.name || 'the company name'}</strong> to confirm
+            </p>
+            <Input value={confirmName} onChange={(e) => setConfirmName(e.target.value)} placeholder={company.name || 'Company name'} disabled={!hasExported} />
+          </div>
+
+          <div>
+            <p className="mb-2 text-sm font-medium text-foreground">3. Enter your password</p>
+            <Input
+              type="password"
+              value={deletePassword}
+              onChange={(e) => setDeletePassword(e.target.value)}
+              placeholder="••••••••"
+              disabled={!hasExported}
+              error={deleteError ?? undefined}
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 border-t border-border pt-4">
+            <Button type="button" variant="ghost" onClick={closeDeleteDialog}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              leftIcon={<Trash2 className="size-4" />}
+              disabled={!hasExported || confirmName !== (company.name || '') || !confirmName}
+              isLoading={isDeleting}
+              onClick={handleDeleteCompany}
+            >
+              Permanently delete
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   )
 }
