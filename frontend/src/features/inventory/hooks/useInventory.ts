@@ -34,11 +34,15 @@ export function useInventoryMovements(itemId: string | undefined) {
   })
 }
 
-/** Company-wide, admin-only — powers the Stock Movements report. */
-export function useAllStockMovements() {
+/** Company-wide, admin-only — powers the Stock Movements report and the dashboard's recent-
+ * activity widget. `enabled` defaults to true for the report page; the dashboard widget passes
+ * `session.role === 'admin'` so a non-admin viewing their dashboard never fires a request the
+ * backend would just 403 on. */
+export function useAllStockMovements(enabled = true) {
   return useQuery({
     queryKey: inventoryKeys.allMovements(),
     queryFn: () => inventoryService.getAllMovements(),
+    enabled,
   })
 }
 
