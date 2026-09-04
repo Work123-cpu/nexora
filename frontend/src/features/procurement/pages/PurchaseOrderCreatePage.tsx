@@ -37,9 +37,24 @@ export function PurchaseOrderCreatePage() {
   const getVendorById = (id: string) => vendors.find((v) => v.id === id)
   const getRawMaterialById = (id: string) => rawMaterials.find((rm) => rm.id === id)
 
+  const prefillVendorId = searchParams.get('vendorId') ?? undefined
   const prefillMaterialId = searchParams.get('materialId') ?? undefined
   const prefillQuantity = Number(searchParams.get('quantity') ?? 0) || undefined
   const prefillMaterial = prefillMaterialId ? getRawMaterialById(prefillMaterialId) : undefined
+  // ?materials=id1:qty1,id2:qty2 -- multiple lines at once, from a BOM-derived reorder (see
+  // buildRestockAction.ts). Only kept once rawMaterials has loaded, so a stale/unknown id from an
+  // old link doesn't silently create a blank line.
+  const prefillMaterialsParam = searchParams.get('materials') ?? undefined
+  const prefillMaterialsList: DraftLine[] | undefined =
+    prefillMaterialsParam && rawMaterials.length > 0
+      ? prefillMaterialsParam
+          .split(',')
+          .map((pair) => {
+            const [rawMaterialId, qty] = pair.split(':')
+            return { rawMaterialId: rawMaterialId ?? '', quantity: Number(qty) || 0 }
+          })
+          .filter((line) => getRawMaterialById(line.rawMaterialId))
+      : undefined
 
   const [vendorId, setVendorId] = useState('')
   const [warehouseId, setWarehouseId] = useState('')
@@ -52,7 +67,7 @@ export function PurchaseOrderCreatePage() {
 
   useEffect(() => {
     if (vendorId || vendors.length === 0) return
-    setVendorId(prefillMaterial?.primaryVendorId ?? vendors[0]!.id)
+    setVendorId(prefillVendorId ?? prefillMaterial?.primaryVendorId ?? vendors[0]!.id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vendors])
 
@@ -63,6 +78,10 @@ export function PurchaseOrderCreatePage() {
 
   useEffect(() => {
     if (lines.length > 0 || rawMaterials.length === 0) return
+    if (prefillMaterialsList && prefillMaterialsList.length > 0) {
+      setLines(prefillMaterialsList)
+      return
+    }
     setLines(prefillMaterial ? [{ rawMaterialId: prefillMaterial.id, quantity: prefillQuantity ?? '' }] : [{ rawMaterialId: rawMaterials[0]!.id, quantity: '' }])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawMaterials])
