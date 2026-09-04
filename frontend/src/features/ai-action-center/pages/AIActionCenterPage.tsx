@@ -13,6 +13,7 @@ import { useToast } from '@/shared/ui/Toast'
 import { useInventoryItems } from '@/features/inventory/hooks/useInventory'
 import { useRawMaterials } from '@/features/raw-materials/hooks/useRawMaterials'
 import { useBOMs } from '@/features/bom/hooks/useBOM'
+import { useVendors } from '@/features/vendors/hooks/useVendors'
 import { buildRestockAction } from '@/features/procurement/lib/buildRestockAction'
 import { useActionQueue } from '../hooks/useActionQueue'
 import { ApprovalDialog } from '../components/ApprovalDialog'
@@ -50,32 +51,29 @@ export function AIActionCenterPage() {
   const { data: inventoryData } = useInventoryItems({ pageSize: 10000 })
   const { data: rawMaterialsData } = useRawMaterials({ pageSize: 10000 })
   const { data: bomsData } = useBOMs({ pageSize: 10000 })
+  const { data: vendorsData } = useVendors({ pageSize: 10000 })
   const inventoryItems = inventoryData?.items ?? []
   const rawMaterials = rawMaterialsData?.items ?? []
   const boms = bomsData?.items ?? []
+  const vendors = vendorsData?.items ?? []
 
   /** reorder/safety-stock recommendations have a real, single action to hand off to — mirrors
    * Procurement Recommendations' own Accept exactly (see buildRestockAction.ts). A raw material
    * is genuinely bought from a vendor, so that's a pre-filled Purchase Order for it directly. A
    * product (e.g. Samosa) is made in-house, not purchased from anyone — the real purchase is the
    * RAW MATERIALS its BOM says are needed to make more of it, only falling back to a manual
-   * restock on the product's own inventory entry when there's no BOM to derive that from. The
-   * other categories (supplier-risk, market-impact, production-plan) have no equivalent one-click
-   * action, so approving them just records the decision. */
+   * restock on the product's own inventory entry when there's no BOM to derive that from. Any
+   * other vendor's materials go along as navigation state so the PO page can offer them as
+   * one-click follow-up orders. The other categories (supplier-risk, market-impact,
+   * production-plan) have no equivalent one-click action, so approving them just records the
+   * decision. */
   const handleApprove = (recommendation: AIRecommendation) => {
     decide(recommendation.id, 'approved')
     if (recommendation.category === 'reorder' || recommendation.category === 'safety-stock') {
       const quantityMatch = recommendation.suggestedAction.match(/([\d.]+)\s*(\w+)?/)
       const quantity = quantityMatch ? Math.round(Number(quantityMatch[1])) : 100
-      const action = buildRestockAction(recommendation, quantity, boms, rawMaterials, inventoryItems)
-      if (action.type === 'purchase-order' && action.omittedCount > 0) {
-        toast({
-          title: 'Purchase order pre-filled for one vendor',
-          description: `${action.omittedCount} other material${action.omittedCount === 1 ? '' : 's'} in this product's BOM come from a different vendor — order ${action.omittedCount === 1 ? 'it' : 'them'} separately.`,
-          tone: 'info',
-        })
-      }
-      navigate(action.url)
+      const action = buildRestockAction(recommendation, quantity, boms, rawMaterials, inventoryItems, vendors)
+      navigate(action.url, action.type === 'purchase-order' ? { state: { otherOrders: action.otherOrders } } : undefined)
       return
     }
     toast({ title: 'Action marked as approved', tone: 'success' })

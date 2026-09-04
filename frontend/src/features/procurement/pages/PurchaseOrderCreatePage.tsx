@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Plus, Save, Sparkles, Trash2 } from 'lucide-react'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { ArrowRight, Building2, Plus, Save, Sparkles, Trash2 } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/layout/PageHeader'
 import { Breadcrumbs } from '@/shared/ui/Breadcrumbs'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/Card'
@@ -15,6 +15,7 @@ import { useRawMaterials } from '@/features/raw-materials/hooks/useRawMaterials'
 import { useWarehouses } from '@/features/warehouse/hooks/useWarehouses'
 import { useAuth } from '@/features/auth/context/AuthContext'
 import { useCreatePurchaseOrder } from '../hooks/usePurchaseOrders'
+import type { OtherVendorOrder } from '../lib/buildRestockAction'
 import type { PurchaseOrderLineItem } from '@/types/entities/purchaseOrder'
 
 interface DraftLine {
@@ -22,12 +23,25 @@ interface DraftLine {
   quantity: number | ''
 }
 
+/** Keyed by the URL's search string so clicking one of the "other vendor" links below (same
+ * route, different ?vendorId=/?materials=) forces a full remount instead of silently reusing the
+ * previous instance's state — React Router doesn't remount on a query-only change by default. */
 export function PurchaseOrderCreatePage() {
+  const location = useLocation()
+  return <PurchaseOrderCreateForm key={location.search} />
+}
+
+function PurchaseOrderCreateForm() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { toast } = useToast()
   const { session } = useAuth()
   const createPO = useCreatePurchaseOrder()
   const [searchParams] = useSearchParams()
+  // Other vendors' materials from the same BOM-derived reorder, carried as navigation state (not
+  // a URL param — there's no reason to make this survive a reload/share, and it'd be an awkward
+  // URL to encode). See buildRestockAction.ts.
+  const otherOrders = (location.state as { otherOrders?: OtherVendorOrder[] } | null)?.otherOrders ?? []
 
   const { data: vendorsData } = useVendors({ pageSize: 10000 })
   const { data: materialsData } = useRawMaterials({ pageSize: 10000 })
@@ -153,6 +167,37 @@ export function PurchaseOrderCreatePage() {
           </Card>
         )}
 
+        {otherOrders.length > 0 && (
+          <Card className="border-warning/30 bg-warning-soft/30">
+            <CardContent className="py-4">
+              <p className="text-sm font-semibold text-foreground">Also needed from other vendors</p>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                A purchase order can only go to one vendor — the rest of this product's BOM comes from elsewhere.
+              </p>
+              <div className="mt-3 space-y-2">
+                {otherOrders.map((order) => (
+                  <Link
+                    key={order.vendorId}
+                    to={order.url}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-border bg-surface p-3 text-sm transition-colors hover:border-primary/40"
+                  >
+                    <span className="flex items-center gap-2 text-foreground">
+                      <Building2 className="size-4 text-muted-foreground" />
+                      {order.vendorName}
+                      <span className="text-muted-foreground">
+                        · {order.materialCount} material{order.materialCount === 1 ? '' : 's'}
+                      </span>
+                    </span>
+                    <span className="flex items-center gap-1 font-medium text-primary">
+                      Create this order <ArrowRight className="size-3.5" />
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <Card>
           <CardHeader>
             <div>
@@ -209,19 +254,27 @@ export function PurchaseOrderCreatePage() {
                 const material = getRawMaterialById(line.rawMaterialId)
                 const quantity = line.quantity === '' ? 0 : line.quantity
                 const subtotal = quantity * (material?.unitCost ?? 0)
+                const materialVendorName = material ? getVendorById(material.primaryVendorId)?.name : undefined
                 return (
-                  <div key={index} className="grid grid-cols-1 gap-2 rounded-xl border border-border p-3 sm:grid-cols-[2fr_1fr_1fr_auto]">
-                    <Select options={materialOptions} value={line.rawMaterialId} onChange={(e) => updateLine(index, { rawMaterialId: e.target.value })} />
-                    <Input
-                      type="number"
-                      value={line.quantity}
-                      onChange={(e) => updateLine(index, { quantity: e.target.value === '' ? '' : Number(e.target.value) })}
-                      placeholder="e.g. 100"
-                    />
-                    <div className="flex items-center px-2 text-sm font-medium text-foreground">{formatCurrency(subtotal, true)}</div>
-                    <Button type="button" variant="ghost" size="icon" aria-label="Remove line" onClick={() => removeLine(index)}>
-                      <Trash2 className="size-4 text-danger" />
-                    </Button>
+                  <div key={index} className="rounded-xl border border-border p-3">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-[2fr_1fr_1fr_auto]">
+                      <Select options={materialOptions} value={line.rawMaterialId} onChange={(e) => updateLine(index, { rawMaterialId: e.target.value })} />
+                      <Input
+                        type="number"
+                        value={line.quantity}
+                        onChange={(e) => updateLine(index, { quantity: e.target.value === '' ? '' : Number(e.target.value) })}
+                        placeholder="e.g. 100"
+                      />
+                      <div className="flex items-center px-2 text-sm font-medium text-foreground">{formatCurrency(subtotal, true)}</div>
+                      <Button type="button" variant="ghost" size="icon" aria-label="Remove line" onClick={() => removeLine(index)}>
+                        <Trash2 className="size-4 text-danger" />
+                      </Button>
+                    </div>
+                    {materialVendorName && (
+                      <p className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
+                        <Building2 className="size-3" /> Supplied by {materialVendorName}
+                      </p>
+                    )}
                   </div>
                 )
               })}
