@@ -88,14 +88,18 @@ export function MarketIntelligenceStep() {
   const { next, back } = useWizard()
   const [company, setCompany] = useState(() => getCompanyConfig())
   const [isSaving, setIsSaving] = useState(false)
-  const hasAKey = Boolean(company.alphaVantageApiKey || company.dataGovInApiKey)
+  const hasAKey = Boolean(company.alphaVantageApiKey || company.dataGovInApiKey || company.commodityPriceApiKey)
 
   const handleNext = async () => {
     if (hasAKey) {
       setIsSaving(true)
       setCompanyConfig(company)
       try {
-        await apiClient.put('/company/settings', { alphaVantageApiKey: company.alphaVantageApiKey, dataGovInApiKey: company.dataGovInApiKey })
+        await apiClient.put('/company/settings', {
+          alphaVantageApiKey: company.alphaVantageApiKey,
+          dataGovInApiKey: company.dataGovInApiKey,
+          commodityPriceApiKey: company.commodityPriceApiKey,
+        })
       } catch {
         // Best-effort — don't block the wizard on a sync failure; Settings can retry later.
       } finally {
@@ -131,14 +135,26 @@ export function MarketIntelligenceStep() {
           placeholder="Paste your free key here"
           autoComplete="off"
         />
+        <Input
+          label="CommodityPriceAPI key (optional)"
+          type="password"
+          value={company.commodityPriceApiKey}
+          onChange={(e) => setCompany((prev) => ({ ...prev, commodityPriceApiKey: e.target.value }))}
+          placeholder="Paste your free-trial key here"
+          autoComplete="off"
+        />
         <p className="text-xs text-muted-foreground">
           Get a free Alpha Vantage key at{' '}
           <a href="https://www.alphavantage.co/support/#api-key" target="_blank" rel="noreferrer" className="text-primary hover:underline">
             alphavantage.co
           </a>
-          , or a free data.gov.in key at{' '}
+          , a free data.gov.in key at{' '}
           <a href="https://data.gov.in/user/register" target="_blank" rel="noreferrer" className="text-primary hover:underline">
             data.gov.in
+          </a>
+          , or a free-trial CommodityPriceAPI key (covers butter and other dairy) at{' '}
+          <a href="https://commoditypriceapi.com/" target="_blank" rel="noreferrer" className="text-primary hover:underline">
+            commoditypriceapi.com
           </a>
           . Materials without a key still show an AI-estimated trend instead of no data at all.
         </p>

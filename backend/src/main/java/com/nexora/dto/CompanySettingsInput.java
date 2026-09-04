@@ -4,6 +4,7 @@ package com.nexora.dto;
  * price polling) — name/currency/locale remain frontend-localStorage-only, unchanged. */
 public record CompanySettingsInput(
         String alphaVantageApiKey,
-        String dataGovInApiKey
+        String dataGovInApiKey,
+        String commodityPriceApiKey
 ) {
 }

@@ -59,6 +59,7 @@ public class MaterialIntelligenceScheduler {
             }
             if (intel == null) continue; // ai-service still down — skip this material, retry tomorrow
 
+            materialIntelligenceService.reRouteIfNowCovered(material, intel);
             materialIntelligenceService.refreshSnapshot(material, intel, company);
         }
         notificationService.syncMaterialPriceAlerts(companyId);

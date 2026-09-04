@@ -31,6 +31,7 @@ public class CompanyService {
         Company company = getSettings(companyId);
         company.setAlphaVantageApiKey(input.alphaVantageApiKey());
         company.setDataGovInApiKey(input.dataGovInApiKey());
+        company.setCommodityPriceApiKey(input.commodityPriceApiKey());
         return repository.save(company);
     }
 

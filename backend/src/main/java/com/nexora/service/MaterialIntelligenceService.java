@@ -36,6 +36,7 @@ public class MaterialIntelligenceService {
     private final AiServiceClient aiServiceClient;
     private final AgmarknetService agmarknet;
     private final MarketDataService marketData;
+    private final CommodityPriceApiService commodityPriceApi;
     private final PriceForecastService forecastService;
     private final double spikeDayPct;
 
@@ -47,6 +48,7 @@ public class MaterialIntelligenceService {
             AiServiceClient aiServiceClient,
             AgmarknetService agmarknet,
             MarketDataService marketData,
+            CommodityPriceApiService commodityPriceApi,
             PriceForecastService forecastService,
             @Value("${nexora.market-intelligence.spike-day-pct}") double spikeDayPct
     ) {
@@ -57,6 +59,7 @@ public class MaterialIntelligenceService {
         this.aiServiceClient = aiServiceClient;
         this.agmarknet = agmarknet;
         this.marketData = marketData;
+        this.commodityPriceApi = commodityPriceApi;
         this.forecastService = forecastService;
         this.spikeDayPct = spikeDayPct;
     }
@@ -102,6 +105,8 @@ public class MaterialIntelligenceService {
         if (referenceCommodity != null && agmarknet.matchCommodity(referenceCommodity).isPresent()) return DataMode.REAL_PRICE;
         if (matchTrackedCommodity(materialName).isPresent()) return DataMode.REAL_PRICE;
         if (referenceCommodity != null && matchTrackedCommodity(referenceCommodity).isPresent()) return DataMode.REAL_PRICE;
+        if (commodityPriceApi.matchCommodity(materialName).isPresent()) return DataMode.REAL_PRICE;
+        if (referenceCommodity != null && commodityPriceApi.matchCommodity(referenceCommodity).isPresent()) return DataMode.REAL_PRICE;
         return DataMode.INDICATOR_ONLY;
     }
 
@@ -110,6 +115,21 @@ public class MaterialIntelligenceService {
         return MarketDataService.TRACKED_COMMODITIES.stream()
                 .filter(def -> def.keywords().stream().anyMatch(lower::contains))
                 .findFirst();
+    }
+
+    /** A material classified before a new price-source provider existed (e.g. Butter, routed to
+     * INDICATOR_ONLY back when only Agmarknet/Alpha Vantage were checked) stays stuck there
+     * forever otherwise — dataMode is set once at classification time and nothing re-evaluates it
+     * later. Re-runs the same deterministic routing from the already-stored name/reference
+     * commodity, so a newly added key can retroactively unlock coverage without another LLM call.
+     * Called wherever a material's data is read or refreshed, so it self-heals on next page load,
+     * manual refresh, or the daily scheduled run — no dedicated "recheck routing" action needed. */
+    public void reRouteIfNowCovered(RawMaterial material, RawMaterialIntelligence intel) {
+        if (intel.getDataMode() != DataMode.INDICATOR_ONLY) return;
+        if (routeDataMode(material.getName(), intel.getReferenceCommodity()) == DataMode.REAL_PRICE) {
+            intel.setDataMode(DataMode.REAL_PRICE);
+            intelligenceRepo.save(intel);
+        }
     }
 
     /** Appends today's snapshot (India time) if one doesn't already exist. A failed real-price
@@ -134,6 +154,7 @@ public class MaterialIntelligenceService {
         if (intel.getDataMode() == DataMode.REAL_PRICE) {
             if (tryAgmarknetSnapshot(material, intel, company, today)) return;
             if (tryMetalSnapshot(material, intel, company, today)) return;
+            if (tryCommodityPriceApiSnapshot(material, intel, company, today)) return;
         }
         saveIndicatorSnapshot(material, intel, today);
     }
@@ -150,6 +171,7 @@ public class MaterialIntelligenceService {
                 intel = intelligenceRepo.findByRawMaterialId(material.getId()).orElse(null);
             }
             if (intel == null) continue;
+            reRouteIfNowCovered(material, intel);
             refreshSnapshot(material, intel, company, true);
         }
         return getView(companyId);
@@ -194,6 +216,19 @@ public class MaterialIntelligenceService {
         }
 
         saveRealSnapshot(material, today, BigDecimal.valueOf(priceInInr), unit, "Alpha Vantage (global spot, converted to INR)", null);
+        return true;
+    }
+
+    private boolean tryCommodityPriceApiSnapshot(RawMaterial material, RawMaterialIntelligence intel, Company company, LocalDate today) {
+        Optional<CommodityPriceApiService.CommodityDef> match = commodityPriceApi.matchCommodity(material.getName());
+        if (match.isEmpty() && intel.getReferenceCommodity() != null) match = commodityPriceApi.matchCommodity(intel.getReferenceCommodity());
+        if (match.isEmpty()) return false;
+
+        String apiKey = company != null ? company.getCommodityPriceApiKey() : null;
+        Optional<CommodityPriceApiService.CommodityPrice> price = commodityPriceApi.fetchLatestPrice(material.getCompanyId(), match.get(), apiKey);
+        if (price.isEmpty()) return false;
+
+        saveRealSnapshot(material, today, BigDecimal.valueOf(price.get().price()), "INR / " + price.get().unit(), "CommodityPriceAPI (global spot, converted to INR)", null);
         return true;
     }
 
@@ -276,6 +311,7 @@ public class MaterialIntelligenceService {
                 intel = intelligenceRepo.findByRawMaterialId(material.getId()).orElse(null);
             }
             if (intel == null) continue; // classification still failing (ai-service down) — retry on next read
+            reRouteIfNowCovered(material, intel);
 
             List<MaterialPriceSnapshot> history = snapshotRepo.findTop30ByRawMaterialIdOrderBySnapshotDateDesc(material.getId());
             if (history.isEmpty()) {

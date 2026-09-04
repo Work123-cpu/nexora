@@ -25,6 +25,12 @@ public class Company {
     @Column(name = "data_gov_in_api_key")
     private String dataGovInApiKey;
 
+    // Nullable — set only once the user adds a CommodityPriceAPI key in Settings. Powers
+    // CommodityPriceApiService's dairy/other lookups (e.g. butter) for materials neither
+    // Agmarknet nor Alpha Vantage cover.
+    @Column(name = "commodity_price_api_key")
+    private String commodityPriceApiKey;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -36,6 +42,8 @@ public class Company {
     public void setAlphaVantageApiKey(String alphaVantageApiKey) { this.alphaVantageApiKey = alphaVantageApiKey; }
     public String getDataGovInApiKey() { return dataGovInApiKey; }
     public void setDataGovInApiKey(String dataGovInApiKey) { this.dataGovInApiKey = dataGovInApiKey; }
+    public String getCommodityPriceApiKey() { return commodityPriceApiKey; }
+    public void setCommodityPriceApiKey(String commodityPriceApiKey) { this.commodityPriceApiKey = commodityPriceApiKey; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 }

@@ -20,6 +20,10 @@ export interface CompanyConfig {
   /** Free data.gov.in key — powers Agmarknet Indian mandi prices for agricultural raw materials
    * on Market Intelligence. Optional; only used server-side (backend does the fetching). */
   dataGovInApiKey: string
+  /** CommodityPriceAPI key (commoditypriceapi.com) — powers Market Intelligence prices for
+   * materials neither Agmarknet nor Alpha Vantage cover (e.g. Butter). Optional; only used
+   * server-side. Paid API with a time-limited free trial, unlike the other two. */
+  commodityPriceApiKey: string
 }
 
 const STORAGE_KEY = 'Nexora.company-config'
@@ -35,6 +39,7 @@ const DEFAULT_COMPANY_CONFIG: CompanyConfig = {
   taxId: '',
   alphaVantageApiKey: '',
   dataGovInApiKey: '',
+  commodityPriceApiKey: '',
 }
 
 export const CURRENCY_LOCALE_PRESETS: { label: string; currencyCode: string; locale: string }[] = [

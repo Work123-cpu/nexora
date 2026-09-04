@@ -102,7 +102,11 @@ export function SettingsPage() {
     // scheduled job can check for price moves and raise real notifications. Best-effort: a
     // failure here shouldn't block the (already-succeeded) local save.
     try {
-      await apiClient.put('/company/settings', { alphaVantageApiKey: company.alphaVantageApiKey, dataGovInApiKey: company.dataGovInApiKey })
+      await apiClient.put('/company/settings', {
+        alphaVantageApiKey: company.alphaVantageApiKey,
+        dataGovInApiKey: company.dataGovInApiKey,
+        commodityPriceApiKey: company.commodityPriceApiKey,
+      })
     } catch {
       toast({ title: 'Saved locally, but could not sync to the server', description: 'Price-move notifications may use a stale key until this succeeds.', tone: 'warning' })
       return
@@ -226,9 +230,14 @@ export function SettingsPage() {
                 <a href="https://www.alphavantage.co/support/#api-key" target="_blank" rel="noreferrer" className="text-primary hover:underline">
                   alphavantage.co
                 </a>
-                ), and Indian agricultural mandi prices via data.gov.in (get a free key at{' '}
+                ), Indian agricultural mandi prices via data.gov.in (get a free key at{' '}
                 <a href="https://data.gov.in/user/register" target="_blank" rel="noreferrer" className="text-primary hover:underline">
                   data.gov.in
+                </a>
+                ), and dairy/other commodities like butter via CommodityPriceAPI (7-day free trial, no card required,
+                at{' '}
+                <a href="https://commoditypriceapi.com/" target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                  commoditypriceapi.com
                 </a>
                 ). Materials without a matching key or feed still show an honest AI-estimated trend instead of no
                 data at all.
@@ -250,6 +259,14 @@ export function SettingsPage() {
               value={company.dataGovInApiKey}
               onChange={(e) => setCompany({ ...company, dataGovInApiKey: e.target.value })}
               placeholder="Paste your free key here"
+              autoComplete="off"
+            />
+            <Input
+              label="CommodityPriceAPI key (optional)"
+              type="password"
+              value={company.commodityPriceApiKey}
+              onChange={(e) => setCompany({ ...company, commodityPriceApiKey: e.target.value })}
+              placeholder="Paste your free-trial key here"
               autoComplete="off"
             />
             <div className="flex justify-end">
