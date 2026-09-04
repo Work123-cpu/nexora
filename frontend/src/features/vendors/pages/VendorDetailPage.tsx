@@ -30,7 +30,9 @@ export function VendorDetailPage() {
   if (isLoading) return <LoadingScreen label="Loading vendor…" />
   if (!vendor) return <EmptyState icon={<PackageX className="size-5" />} title="Vendor not found" />
 
-  const supplied = (materialsData?.items ?? []).filter((rm) => vendor.materialsSupplied.includes(rm.id))
+  // Reads each material's own primaryVendorId rather than vendor.materialsSupplied -- see
+  // VendorForm.tsx for why that field is no longer the source of truth.
+  const supplied = (materialsData?.items ?? []).filter((rm) => rm.primaryVendorId === vendor.id)
   const performanceHistory = getVendorPerformanceHistory(vendor)
   const totalSpend = purchaseOrders?.reduce((sum, po) => sum + po.totalAmount, 0) ?? 0
 

@@ -76,7 +76,6 @@ export function RawMaterialListPage() {
       qualityScorePct: 0,
       leadTimeDays: 0,
       activeContracts: 0,
-      materialsSupplied: [],
       status: 'active',
     })
     vendorCache.current.set(key, created.id)

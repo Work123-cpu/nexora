@@ -9,6 +9,9 @@ export interface GetVendorsParams extends QueryParams {
   status?: VendorStatus
 }
 
+// No materialsSupplied -- which materials a vendor supplies is shown from the live, authoritative
+// side instead (each RawMaterial's own primaryVendorId), not a separately hand-maintained list
+// that could silently drift out of sync with it. See VendorForm.tsx/VendorDetailPage.tsx.
 export interface VendorInput {
   name: string
   category: string
@@ -22,7 +25,6 @@ export interface VendorInput {
   qualityScorePct: number
   leadTimeDays: number
   activeContracts: number
-  materialsSupplied: string[]
   status: VendorStatus
 }
 
