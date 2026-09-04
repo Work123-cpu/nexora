@@ -8,6 +8,7 @@ import { Button } from '@/shared/ui/Button'
 import { useWarehouses } from '@/features/warehouse/hooks/useWarehouses'
 import { useAuth } from '@/features/auth/context/AuthContext'
 import { formatNumber } from '@/shared/lib/formatters'
+import { getCompanyConfig, setCompanyConfig } from '@/shared/lib/companyConfig'
 import { useWizard } from '../context/WizardContext'
 import { WizardStepLayout } from '../components/WizardStepLayout'
 
@@ -56,8 +57,18 @@ export function CompanyStep() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session])
 
+  /** Syncs into CompanyConfig (the localStorage profile Settings' Company Profile card reads via
+   * getCompanyConfig) on Continue — otherwise the name typed here only ever lived in the wizard's
+   * own state, and Settings kept showing the hardcoded "Annapurna Foods & Beverages" default no
+   * matter what was entered. */
+  const handleNext = () => {
+    const trimmed = data.companyName.trim()
+    if (trimmed) setCompanyConfig({ ...getCompanyConfig(), name: trimmed })
+    next()
+  }
+
   return (
-    <WizardStepLayout title="Company Information" description="Tell us a bit about your business." onNext={next} onBack={back}>
+    <WizardStepLayout title="Company Information" description="Tell us a bit about your business." onNext={handleNext} onBack={back}>
       <div className="space-y-4">
         <Input label="Company name" value={data.companyName} onChange={(e) => updateData({ companyName: e.target.value })} />
         <Select label="Industry" options={INDUSTRY_OPTIONS} value={data.industry} onChange={(e) => updateData({ industry: e.target.value })} />
