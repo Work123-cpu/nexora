@@ -34,6 +34,7 @@ export const WIZARD_STEPS = [
   'Inventory',
   'Suppliers',
   'Business Calendar',
+  'Market Intelligence',
   'Review',
   'Completion',
 ] as const

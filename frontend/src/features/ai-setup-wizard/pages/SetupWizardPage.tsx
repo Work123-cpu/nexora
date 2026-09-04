@@ -2,7 +2,7 @@ import { Stepper } from '@/shared/ui/Stepper'
 import { WizardProvider, WIZARD_STEPS, useWizard } from '../context/WizardContext'
 import { WelcomeStep, CompanyStep, WarehouseStep } from '../steps/IntroSteps'
 import { ProductsStep, RawMaterialsStep, BOMStep, InventoryStep } from '../steps/DataSteps'
-import { SuppliersStep, CalendarStep } from '../steps/IntegrationSteps'
+import { SuppliersStep, CalendarStep, MarketIntelligenceStep } from '../steps/IntegrationSteps'
 import { ReviewStep, CompletionStep } from '../steps/FinalSteps'
 
 const STEP_COMPONENTS = [
@@ -15,6 +15,7 @@ const STEP_COMPONENTS = [
   InventoryStep,
   SuppliersStep,
   CalendarStep,
+  MarketIntelligenceStep,
   ReviewStep,
   CompletionStep,
 ]
