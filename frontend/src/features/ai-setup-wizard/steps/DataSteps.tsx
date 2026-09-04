@@ -15,7 +15,13 @@ import { useCreateRawMaterial, useRawMaterials } from '@/features/raw-materials/
 import { mapRawMaterialCsvRow, RAW_MATERIAL_CSV_TEMPLATE, type RawMaterialCsvInput } from '@/features/raw-materials/lib/csvMapper'
 import { useVendors, useCreateVendor } from '@/features/vendors/hooks/useVendors'
 import { useBOMs } from '@/features/bom/hooks/useBOM'
-import { useInventoryItems } from '@/features/inventory/hooks/useInventory'
+import { useWarehouses } from '@/features/warehouse/hooks/useWarehouses'
+import { useBills } from '@/features/billing/hooks/useBills'
+import { useInventoryItems, useCreateInventoryItem } from '@/features/inventory/hooks/useInventory'
+import { mapInventoryCsvRow, INVENTORY_CSV_TEMPLATE, type InventoryCsvInput } from '@/features/inventory/lib/csvMapper'
+import { computeDailySalesHistory, averageDailyUsage } from '@/lib/salesHistory/computeSalesHistory'
+import { computeMaterialDailyUsage } from '@/lib/salesHistory/computeMaterialDailyUsage'
+import { computeLeadTimeDays, computeReorderLevels } from '@/lib/salesHistory/computeReorderLevels'
 import { useWizard } from '../context/WizardContext'
 import { WizardStepLayout } from '../components/WizardStepLayout'
 
@@ -208,9 +214,65 @@ export function BOMStep() {
 
 export function InventoryStep() {
   const { next, back } = useWizard()
+  const { toast } = useToast()
+  const [importOpen, setImportOpen] = useState(false)
+  const createInventoryItem = useCreateInventoryItem()
   const { data } = useInventoryItems({ pageSize: 10000 })
+  const { data: productsData } = useProducts({ pageSize: 10000 })
+  const { data: rawMaterialsData } = useRawMaterials({ pageSize: 10000 })
+  const { data: warehousesData } = useWarehouses({ pageSize: 10000 })
+  const { data: billsData } = useBills({ pageSize: 10000 })
+  const { data: bomsData } = useBOMs({ pageSize: 10000 })
   const inventoryItems = data?.items ?? []
+  const products = productsData?.items ?? []
+  const rawMaterials = rawMaterialsData?.items ?? []
+  const warehouses = warehousesData?.items ?? []
+  const bills = billsData?.items ?? []
+  const boms = bomsData?.items ?? []
   const lowStock = inventoryItems.filter((i) => i.quantityOnHand <= i.reorderPoint).length
+
+  // Mirrors InventoryDashboardPage's own bulk-import handler exactly — same name/warehouse
+  // resolution, same reorder-level forecasting fallback when a CSV row leaves them blank.
+  const handleImportRow = async (input: InventoryCsvInput) => {
+    const catalog = input.itemType === 'product' ? products : rawMaterials
+    const item = catalog.find((i) => i.name.toLowerCase() === input.itemName.toLowerCase())
+    if (!item) throw new Error(`No ${input.itemType === 'product' ? 'product' : 'raw material'} named "${input.itemName}" — add it to the catalog first.`)
+    const warehouse = warehouses.find((w) => w.name.toLowerCase() === input.warehouseName.toLowerCase())
+    if (!warehouse) throw new Error(`No warehouse named "${input.warehouseName}" — add it first.`)
+
+    const computedUsage =
+      input.itemType === 'product'
+        ? (() => {
+            const series = computeDailySalesHistory(bills, item.id)
+            return series ? averageDailyUsage(series) : undefined
+          })()
+        : computeMaterialDailyUsage(bills, boms, item.id)
+    const avgDailyUsage = input.avgDailyUsage ?? (computedUsage !== undefined ? Number(computedUsage.toFixed(1)) : 0)
+
+    let reorderPoint = input.reorderPoint
+    let reorderQuantity = input.reorderQuantity
+    if (reorderPoint === undefined || reorderQuantity === undefined) {
+      const leadTimeDays = computeLeadTimeDays(input.itemType, item.id, rawMaterials, boms)
+      const levels = computeReorderLevels(computedUsage ?? avgDailyUsage, leadTimeDays, input.safetyStock)
+      reorderPoint = reorderPoint ?? levels.reorderPoint
+      reorderQuantity = reorderQuantity ?? levels.reorderQuantity
+    }
+
+    return createInventoryItem.mutateAsync({
+      itemType: input.itemType,
+      itemId: item.id,
+      itemName: item.name,
+      category: item.category,
+      unit: 'unitOfMeasure' in item ? item.unitOfMeasure : item.unit,
+      warehouseId: warehouse.id,
+      quantityOnHand: input.quantityOnHand,
+      safetyStock: input.safetyStock,
+      reorderPoint,
+      reorderQuantity,
+      avgDailyUsage,
+    })
+  }
+
   return (
     <WizardStepLayout title="Inventory" description="Current stock levels across all tracked items." onNext={next} onBack={back}>
       {inventoryItems.length === 0 ? (
@@ -219,23 +281,46 @@ export function InventoryStep() {
           title="No inventory yet"
           description="Inventory tracking starts once your products and raw materials are added."
           action={
-            <Link to="/app/inventory/add-stock">
-              <Button type="button" variant="outline" size="sm" leftIcon={<Plus className="size-3.5" />}>
-                Add stock
+            <div className="flex flex-wrap justify-center gap-2">
+              <Link to="/app/inventory/add-stock">
+                <Button type="button" variant="outline" size="sm" leftIcon={<Plus className="size-3.5" />}>
+                  Add stock
+                </Button>
+              </Link>
+              <Button type="button" variant="outline" size="sm" leftIcon={<Upload className="size-3.5" />} onClick={() => setImportOpen(true)}>
+                Bulk import CSV
               </Button>
-            </Link>
+            </div>
           }
         />
       ) : (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-          <StatCard label="Tracked SKUs" value={formatNumber(inventoryItems.length)} icon={<Warehouse className="size-5" />} tone="primary" />
-          <StatCard label="Below Reorder Point" value={formatNumber(lowStock)} tone="warning" />
-          <StatCard label="Healthy" value={formatNumber(inventoryItems.length - lowStock)} tone="success" />
-        </div>
+        <>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+            <StatCard label="Tracked SKUs" value={formatNumber(inventoryItems.length)} icon={<Warehouse className="size-5" />} tone="primary" />
+            <StatCard label="Below Reorder Point" value={formatNumber(lowStock)} tone="warning" />
+            <StatCard label="Healthy" value={formatNumber(inventoryItems.length - lowStock)} tone="success" />
+          </div>
+          <Button type="button" variant="outline" size="sm" className="mt-4" leftIcon={<Upload className="size-3.5" />} onClick={() => setImportOpen(true)}>
+            Bulk import CSV
+          </Button>
+        </>
       )}
       <p className="mt-4 text-xs text-muted-foreground">
         Nexora will start generating reorder recommendations automatically based on these levels.
       </p>
+
+      <BulkImportDialog<InventoryCsvInput>
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        title="Bulk Import Inventory"
+        description="Upload a CSV to start tracking stock for many items at once. The product/raw material and warehouse must already exist. Leave reorder point, reorder quantity, or avg. daily usage blank to have them forecasted automatically from sales history."
+        templateFilename={INVENTORY_CSV_TEMPLATE.filename}
+        templateHeaders={INVENTORY_CSV_TEMPLATE.headers}
+        templateExampleRow={INVENTORY_CSV_TEMPLATE.exampleRow(warehouses[0]?.name ?? 'Main Warehouse')}
+        mapRow={mapInventoryCsvRow}
+        onImportRow={handleImportRow}
+        onImported={(count) => toast({ title: 'Import complete', description: `${count} inventory record(s) added.`, tone: 'success' })}
+      />
     </WizardStepLayout>
   )
 }
