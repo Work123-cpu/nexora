@@ -10,6 +10,7 @@ import { EmptyState } from '@/shared/ui/EmptyState'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/Tabs'
 import { ConfidenceScoreBadge } from '@/shared/ui/ConfidenceScoreBadge'
 import { useToast } from '@/shared/ui/Toast'
+import { useInventoryItems } from '@/features/inventory/hooks/useInventory'
 import { useActionQueue } from '../hooks/useActionQueue'
 import { ApprovalDialog } from '../components/ApprovalDialog'
 import type { AIRecommendation } from '@/lib/recommendation-engine/types'
@@ -43,17 +44,27 @@ export function AIActionCenterPage() {
   const { toast } = useToast()
   const navigate = useNavigate()
   const [selected, setSelected] = useState<AIRecommendation | null>(null)
+  const { data: inventoryData } = useInventoryItems({ pageSize: 10000 })
+  const inventoryItems = inventoryData?.items ?? []
 
-  /** reorder/safety-stock recommendations have a real, single action to hand off to — the same
-   * "Accept" shortcut Procurement Recommendations already uses (pre-filled PO, quantity parsed
-   * from suggestedAction). The other categories (supplier-risk, market-impact, production-plan)
-   * have no equivalent one-click action, so approving them just records the decision. */
+  /** reorder/safety-stock recommendations have a real, single action to hand off to — mirrors
+   * Procurement Recommendations' own Accept exactly. A raw material is genuinely bought from a
+   * vendor, so that goes to a pre-filled Purchase Order. A product (e.g. Samosa) is made
+   * in-house, not purchased from anyone — there's no vendor to prefill a PO with, so that instead
+   * goes to the product's own (already-tracked) inventory entry with the restock pre-applied. The
+   * other categories (supplier-risk, market-impact, production-plan) have no equivalent one-click
+   * action, so approving them just records the decision. */
   const handleApprove = (recommendation: AIRecommendation) => {
     decide(recommendation.id, 'approved')
     if (recommendation.category === 'reorder' || recommendation.category === 'safety-stock') {
       const quantityMatch = recommendation.suggestedAction.match(/([\d.]+)\s*(\w+)?/)
       const quantity = quantityMatch ? Math.round(Number(quantityMatch[1])) : 100
-      navigate(`/app/procurement/purchase-orders/new?materialId=${recommendation.entityId}&quantity=${quantity}`)
+      if (recommendation.entityType === 'rawMaterial') {
+        navigate(`/app/procurement/purchase-orders/new?materialId=${recommendation.entityId}&quantity=${quantity}`)
+        return
+      }
+      const inventoryItem = inventoryItems.find((i) => i.itemType === recommendation.entityType && i.itemId === recommendation.entityId)
+      navigate(inventoryItem ? `/app/inventory/${inventoryItem.id}/edit?add=${quantity}` : '/app/inventory/add-stock')
       return
     }
     toast({ title: 'Action marked as approved', tone: 'success' })

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { AlertTriangle, PackageX, Save } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/layout/PageHeader'
 import { Breadcrumbs } from '@/shared/ui/Breadcrumbs'
@@ -24,6 +24,10 @@ export function InventoryEditPage() {
   const { toast } = useToast()
   const { data: item, isLoading } = useInventoryItem(id)
   const adjustInventoryItem = useAdjustInventoryItem()
+  const [searchParams] = useSearchParams()
+  // ?add=N -- from a reorder/safety-stock recommendation's suggested quantity, so the field opens
+  // already showing the replenished total (current + suggested) instead of just today's number.
+  const addQuantity = Number(searchParams.get('add') ?? 0) || undefined
 
   const { data: warehousesData } = useWarehouses({ pageSize: 10000 })
   const { data: billsData } = useBills({ pageSize: 10000 })
@@ -44,7 +48,7 @@ export function InventoryEditPage() {
 
   useEffect(() => {
     if (!item || hasLoadedInitial) return
-    setQuantityOnHand(item.quantityOnHand)
+    setQuantityOnHand(addQuantity ? item.quantityOnHand + addQuantity : item.quantityOnHand)
     setSafetyStock(item.safetyStock)
     setReorderPoint(item.reorderPoint)
     setReorderQuantity(item.reorderQuantity)
@@ -146,6 +150,7 @@ export function InventoryEditPage() {
               min={0}
               step="1"
               placeholder="e.g. 250"
+              hint={addQuantity ? `Pre-filled with the recommended restock: ${item?.quantityOnHand ?? 0} on hand + ${addQuantity} suggested.` : undefined}
               value={quantityOnHand}
               onChange={(e) => setQuantityOnHand(e.target.value === '' ? '' : Number(e.target.value))}
             />
