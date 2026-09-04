@@ -3,7 +3,14 @@ import type { InventoryItem } from '@/types/entities/inventory'
 import type { Vendor } from '@/types/entities/vendor'
 import type { PurchaseOrder } from '@/types/entities/purchaseOrder'
 import type { Bill } from '@/types/entities/bill'
+import type { Product } from '@/types/entities/product'
 import type { LiveMarketSignal } from '@/shared/hooks/useLiveMarketSignals'
+import { computeDailySalesHistory } from '@/lib/salesHistory/computeSalesHistory'
+
+/** Matches the ai-service's MIN_HISTORY_WINDOW and computeDailySalesHistory's own default — a
+ * product only counts as forecastable from real data once this many real calendar days have
+ * elapsed since its first bill. */
+const FORECAST_MIN_HISTORY_DAYS = 10
 
 export * from './types'
 
@@ -23,6 +30,7 @@ export interface BusinessHealthInputs {
   purchaseOrders: PurchaseOrder[]
   marketSignals: LiveMarketSignal[]
   bills: Bill[]
+  products: Product[]
   systemHealth: SystemHealthSignal | null
 }
 
@@ -78,16 +86,38 @@ function computeSupplierHealth(vendors: Vendor[]): HealthCategory {
   }
 }
 
-function computeForecastHealth(inventoryItems: InventoryItem[]): HealthCategory {
-  const lowStockCount = inventoryItems.filter((i) => i.quantityOnHand <= i.reorderPoint).length
-  const score = Math.max(45, Math.round(92 - lowStockCount * 1.4))
+/** Real forecast quality is about how much of the ML forecast is grounded in this company's own
+ * sales rather than a category-level estimate — same real-history check the Forecast Report page
+ * uses per product (computeDailySalesHistory), not a stand-in metric borrowed from another
+ * category. */
+function computeForecastHealth(products: Product[], bills: Bill[]): HealthCategory {
+  const activeProducts = products.filter((p) => p.status === 'active')
+  const total = activeProducts.length
+
+  if (total === 0) {
+    return {
+      key: 'forecast',
+      label: 'Forecast Health',
+      score: 100,
+      status: 'excellent',
+      summary: 'No active products yet — forecasts will use category-level estimates once you start selling.',
+    }
+  }
+
+  const realCount = activeProducts.filter((p) => computeDailySalesHistory(bills, p.id, FORECAST_MIN_HISTORY_DAYS) !== undefined).length
+  const score = Math.round(60 + 36 * (realCount / total))
 
   return {
     key: 'forecast',
     label: 'Forecast Health',
     score,
     status: statusForScore(score),
-    summary: 'Forecasts use ML models trained on synthetic category data, scaled to your own products (no real sales history exists yet).',
+    summary:
+      realCount === 0
+        ? `0 of ${total} product(s) have ${FORECAST_MIN_HISTORY_DAYS}+ days of real sales history yet — forecasts use a category-level estimate until then.`
+        : realCount === total
+          ? `All ${total} product(s) are forecast from your own real sales history.`
+          : `${realCount} of ${total} product(s) are forecast from your own real sales history; the rest use a category-level estimate.`,
   }
 }
 
@@ -188,12 +218,12 @@ function computeMarketRiskHealth(marketSignals: LiveMarketSignal[]): HealthCateg
 }
 
 export function computeBusinessHealth(inputs: BusinessHealthInputs): BusinessHealth {
-  const { inventoryItems, vendors, purchaseOrders, marketSignals, bills, systemHealth } = inputs
+  const { inventoryItems, vendors, purchaseOrders, marketSignals, bills, products, systemHealth } = inputs
   const categories = [
     computeInventoryHealth(inventoryItems),
     computeSupplierHealth(vendors),
     computeProcurementHealth(purchaseOrders),
-    computeForecastHealth(inventoryItems),
+    computeForecastHealth(products, bills),
     computeMarketRiskHealth(marketSignals),
     computeDatabaseHealth(systemHealth),
     computeBillingHealth(bills),

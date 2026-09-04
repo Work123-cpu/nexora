@@ -6,6 +6,7 @@ import { useRawMaterials } from '@/features/raw-materials/hooks/useRawMaterials'
 import { useVendors } from '@/features/vendors/hooks/useVendors'
 import { usePurchaseOrders } from '@/features/procurement/hooks/usePurchaseOrders'
 import { useBills } from '@/features/billing/hooks/useBills'
+import { useProducts } from '@/features/products/hooks/useProducts'
 import { apiClient } from '@/shared/lib/apiClient'
 import { useLiveMarketSignals } from './useLiveMarketSignals'
 
@@ -16,6 +17,7 @@ export function useBusinessHealth(): { health: BusinessHealth; isLoading: boolea
   const { data: vendorsData, isLoading: loadingVendors } = useVendors({ pageSize: 10000 })
   const { data: poData, isLoading: loadingPOs } = usePurchaseOrders({ pageSize: 10000 })
   const { data: billsData, isLoading: loadingBills } = useBills({ pageSize: 10000 })
+  const { data: productsData, isLoading: loadingProducts } = useProducts({ pageSize: 10000 })
   const { data: systemHealth } = useQuery({
     queryKey: ['system-health'],
     queryFn: () => apiClient.get<SystemHealthSignal>('/system/health'),
@@ -32,10 +34,14 @@ export function useBusinessHealth(): { health: BusinessHealth; isLoading: boolea
         purchaseOrders: poData?.items ?? [],
         marketSignals,
         bills: billsData?.items ?? [],
+        products: productsData?.items ?? [],
         systemHealth: systemHealth ?? null,
       }),
-    [inventoryData, vendorsData, poData, marketSignals, billsData, systemHealth],
+    [inventoryData, vendorsData, poData, marketSignals, billsData, productsData, systemHealth],
   )
 
-  return { health, isLoading: loadingInventory || loadingMaterials || loadingVendors || loadingPOs || loadingBills }
+  return {
+    health,
+    isLoading: loadingInventory || loadingMaterials || loadingVendors || loadingPOs || loadingBills || loadingProducts,
+  }
 }

@@ -41,29 +41,32 @@ export function ForecastReport() {
   const [granularity, setGranularity] = useState<ForecastGranularity>('week')
   const { data: productsData } = useProducts({ pageSize: 10000 })
   const { data: inventoryData } = useInventoryItems({ pageSize: 10000 })
-  const { data: billsData } = useBills({ pageSize: 10000 })
+  const { data: billsData, isLoading: loadingBills } = useBills({ pageSize: 10000 })
   const getInventoryByItemId = (id: string) => inventoryData?.items.find((i) => i.itemId === id)
 
   const trackedProducts = useMemo(() => (productsData?.items ?? []).filter((p) => p.status === 'active').slice(0, 10), [productsData])
 
-  const forecastRequests = useMemo(
-    () =>
-      trackedProducts.map((p) => {
-        const inv = getInventoryByItemId(p.id)
-        return {
-          productId: p.id,
-          productName: p.name,
-          category: p.category,
-          unitPrice: p.unitPrice,
-          avgDailyUsage: inv?.avgDailyUsage ?? 1,
-          granularity,
-          horizon: 1,
-          recentSalesHistory: computeDailySalesHistory(billsData?.items ?? [], p.id),
-        }
-      }),
+  const forecastRequests = useMemo(() => {
+    // Bills are what determine recentSalesHistory / isSynthetic below -- firing requests before
+    // they've loaded would send an empty history and get a false "no real history" answer back,
+    // then immediately refire once bills arrive. Waiting the extra beat avoids that flash and the
+    // wasted first round-trip.
+    if (loadingBills) return []
+    return trackedProducts.map((p) => {
+      const inv = getInventoryByItemId(p.id)
+      return {
+        productId: p.id,
+        productName: p.name,
+        category: p.category,
+        unitPrice: p.unitPrice,
+        avgDailyUsage: inv?.avgDailyUsage ?? 1,
+        granularity,
+        horizon: 1,
+        recentSalesHistory: computeDailySalesHistory(billsData?.items ?? [], p.id),
+      }
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [trackedProducts, granularity, inventoryData, billsData],
-  )
+  }, [trackedProducts, granularity, inventoryData, billsData, loadingBills])
   const trendRequests = useMemo(
     () => forecastRequests.map((r) => ({ ...r, horizon: TREND_HORIZON })),
     [forecastRequests],
@@ -157,19 +160,29 @@ export function ForecastReport() {
     { key: 'coverageDays', header: 'Days of Coverage', render: (r) => `${r.coverageDays} days` },
   ]
 
-  const bannerText = anyNaive
-    ? anyDegraded
-      ? 'The forecasting service is currently unreachable — showing a simple avg-usage projection as a fallback until it recovers.'
-      : 'Running in mock mode (VITE_USE_MOCK_FORECAST=true) — showing a simple avg-usage projection instead of live ML models.'
-    : `Forecasts are produced by genuinely-trained XGBoost / Random Forest models${
-        avgConfidence !== undefined ? ` (avg. confidence ${(avgConfidence * 100).toFixed(0)}%)` : ''
-      }. ${
-        realHistoryCount === 0
-          ? "None of these products have 10 days of real sales history yet, so they're forecast from a category-level estimate — this becomes your own data automatically once enough bills accumulate."
-          : realHistoryCount === trackedProducts.length
-            ? 'Every one of these forecasts is built from your own real sales history.'
-            : `${realHistoryCount} of ${trackedProducts.length} products are forecast from your own real sales history; the rest use a category-level estimate until they build up 10 days of sales.`
-      }`
+  // Only claim anything about real-vs-synthetic history once every request has actually
+  // resolved -- a claim based on a still-empty forecastResults (bills mid-fetch, or requests
+  // still in flight) would misreport products with real history as having none.
+  const stillLoadingForecasts = trackedProducts.length > 0 && (loadingBills || !allLoaded)
+
+  const bannerText =
+    trackedProducts.length === 0
+      ? 'No active products to forecast yet.'
+      : stillLoadingForecasts
+        ? 'Loading forecasts…'
+        : anyNaive
+          ? anyDegraded
+            ? 'The forecasting service is currently unreachable — showing a simple avg-usage projection as a fallback until it recovers.'
+            : 'Running in mock mode (VITE_USE_MOCK_FORECAST=true) — showing a simple avg-usage projection instead of live ML models.'
+          : `Forecasts are produced by genuinely-trained XGBoost / Random Forest models${
+              avgConfidence !== undefined ? ` (avg. confidence ${(avgConfidence * 100).toFixed(0)}%)` : ''
+            }. ${
+              realHistoryCount === 0
+                ? "None of these products have 10 days of real sales history yet, so they're forecast from a category-level estimate — this becomes your own data automatically once enough bills accumulate."
+                : realHistoryCount === trackedProducts.length
+                  ? 'Every one of these forecasts is built from your own real sales history.'
+                  : `${realHistoryCount} of ${trackedProducts.length} products are forecast from your own real sales history; the rest use a category-level estimate until they build up 10 days of sales.`
+            }`
 
   return (
     <div className="space-y-6">

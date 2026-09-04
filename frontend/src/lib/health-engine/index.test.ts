@@ -4,6 +4,7 @@ import type { InventoryItem } from '@/types/entities/inventory'
 import type { Vendor } from '@/types/entities/vendor'
 import type { PurchaseOrder } from '@/types/entities/purchaseOrder'
 import type { Bill } from '@/types/entities/bill'
+import type { Product } from '@/types/entities/product'
 
 const inventoryItems: InventoryItem[] = [
   {
@@ -44,12 +45,21 @@ const bills: Bill[] = [
   },
 ]
 
+const products: Product[] = [
+  {
+    id: 'prod-1', sku: 'SKU-1', name: 'Chocolate Cake', category: 'Cakes', description: '', unitOfMeasure: 'unit',
+    unitPrice: 450, unitCost: 210, status: 'active', hasBOM: true, accentColor: '#000000',
+    createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+  },
+]
+
 const inputs: BusinessHealthInputs = {
   inventoryItems,
   vendors,
   purchaseOrders,
   marketSignals: [],
   bills,
+  products,
   systemHealth: { databaseHealthy: true, databaseLatencyMs: 5 },
 }
 
@@ -103,6 +113,25 @@ describe('computeBusinessHealth', () => {
     expect(billingScore(mostlyCancelled)).toBeLessThan(billingScore(noneCancelled))
   })
 
+  it('scores Forecast Health from real per-product sales history, not a hardcoded "no history" claim', () => {
+    // 10 bills for prod-1 spread across the last 15 days -- enough real days for the
+    // forecast-health check to recognize genuine sales history exists.
+    const historyBills: Bill[] = Array.from({ length: 10 }, (_, i) => ({
+      ...bills[0]!,
+      id: `bill-hist-${i}`,
+      createdAt: new Date(Date.now() - (14 - i) * 24 * 60 * 60 * 1000).toISOString(),
+    }))
+
+    const withHistory = computeBusinessHealth({ ...inputs, bills: historyBills })
+    const withoutHistory = computeBusinessHealth({ ...inputs, bills: [] })
+    const forecastCategory = (health: ReturnType<typeof computeBusinessHealth>) => health.categories.find((c) => c.key === 'forecast')!
+
+    expect(forecastCategory(withHistory).summary).toMatch(/real sales history/)
+    expect(forecastCategory(withHistory).summary).not.toMatch(/no real sales history exists/)
+    expect(forecastCategory(withoutHistory).summary).toMatch(/category-level estimate/)
+    expect(forecastCategory(withHistory).score).toBeGreaterThan(forecastCategory(withoutHistory).score)
+  })
+
   it('returns a healthy default when a company has no data yet', () => {
     const health = computeBusinessHealth({
       inventoryItems: [],
@@ -110,6 +139,7 @@ describe('computeBusinessHealth', () => {
       purchaseOrders: [],
       marketSignals: [],
       bills: [],
+      products: [],
       systemHealth: null,
     })
     expect(health.overallScore).toBeGreaterThan(0)
