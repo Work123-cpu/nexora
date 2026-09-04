@@ -1,18 +1,18 @@
 import { useMemo, useState } from 'react'
-import { Info, Sparkles } from 'lucide-react'
+import { Info, Sparkles, TrendingDown, TrendingUp } from 'lucide-react'
 import { PageHeader } from '@/shared/ui/layout/PageHeader'
 import { StatCard } from '@/shared/ui/StatCard'
 import { Reveal } from '@/shared/ui/Reveal'
 import { Select } from '@/shared/ui/Select'
-import { Badge, type BadgeTone } from '@/shared/ui/Badge'
 import { AreaChartCard } from '@/shared/ui/charts/AreaChartCard'
 import { DataTable, type DataTableColumn } from '@/shared/ui/DataTable'
 import { Skeleton } from '@/shared/ui/Skeleton'
 import { formatNumber } from '@/shared/lib/formatters'
+import { cn } from '@/shared/lib/cn'
 import { useProducts } from '@/features/products/hooks/useProducts'
 import { useInventoryItems } from '@/features/inventory/hooks/useInventory'
 import { useBills } from '@/features/billing/hooks/useBills'
-import type { ForecastGranularity, ForecastResponse } from '@/services/forecast'
+import type { ForecastGranularity } from '@/services/forecast'
 import { useProductForecasts } from '../hooks/useForecast'
 import { computeDailySalesHistory } from '@/lib/salesHistory/computeSalesHistory'
 import { ExportMenu } from './ExportMenu'
@@ -24,23 +24,15 @@ const GRANULARITY_OPTIONS: { label: string; value: ForecastGranularity }[] = [
   { label: 'Quarterly', value: 'quarter' },
 ]
 
-const MODEL_LABEL: Record<ForecastResponse['modelUsed'], string> = {
-  xgboost: 'XGBoost',
-  random_forest: 'Random Forest',
-  naive_projection: 'Naive Projection',
-}
-
-const MODEL_TONE: Record<ForecastResponse['modelUsed'], BadgeTone> = {
-  xgboost: 'primary',
-  random_forest: 'info',
-  naive_projection: 'neutral',
-}
-
 interface ForecastRow {
   productId: string
   product: string
   currentStock: number
   coverageDays: number
+  // undefined (not 0) until 14 real calendar days of sales history exist -- never a fabricated
+  // comparison, same "no synthetic backfill" rule the rest of this app follows for real data.
+  lastWeekDemand?: number
+  thisWeekDemand?: number
 }
 
 const TREND_HORIZON = 8
@@ -90,11 +82,18 @@ export function ForecastReport() {
   const rows: ForecastRow[] = trackedProducts.map((p) => {
     const inv = getInventoryByItemId(p.id)
     const avgDailyUsage = inv?.avgDailyUsage ?? 0
+    // 14 daily values (oldest first, ending yesterday) split into two 7-day halves -- undefined
+    // whenever fewer than 14 calendar days of history exist yet, rather than guessing.
+    const series14 = computeDailySalesHistory(billsData?.items ?? [], p.id, 14)
+    const lastWeekDemand = series14 ? series14.slice(0, 7).reduce((sum, n) => sum + n, 0) : undefined
+    const thisWeekDemand = series14 ? series14.slice(7, 14).reduce((sum, n) => sum + n, 0) : undefined
     return {
       productId: p.id,
       product: p.name,
       currentStock: inv?.quantityOnHand ?? 0,
       coverageDays: avgDailyUsage > 0 ? Math.round((inv?.quantityOnHand ?? 0) / avgDailyUsage) : 0,
+      lastWeekDemand,
+      thisWeekDemand,
     }
   })
 
@@ -112,7 +111,8 @@ export function ForecastReport() {
   const exportRows = trackedProducts.map((p, i) => ({
     product: p.name,
     projectedDemand: forecastResults[i]?.data?.points[0]?.predictedUnits ?? '',
-    model: forecastResults[i]?.data ? MODEL_LABEL[forecastResults[i]!.data!.modelUsed] : '',
+    lastWeekDemand: rows[i]?.lastWeekDemand ?? '',
+    thisWeekDemand: rows[i]?.thisWeekDemand ?? '',
     currentStock: rows[i]?.currentStock,
     coverageDays: rows[i]?.coverageDays,
   }))
@@ -130,17 +130,26 @@ export function ForecastReport() {
       },
     },
     {
-      key: 'model',
-      header: 'Model',
+      key: 'weeklyDemand',
+      header: 'Last Week vs This Week',
       render: (r) => {
-        const idx = trackedProducts.findIndex((p) => p.id === r.productId)
-        const result = forecastResults[idx]
-        if (!result?.data) return <Skeleton className="h-5 w-20" />
+        if (r.lastWeekDemand === undefined || r.thisWeekDemand === undefined) {
+          return <span className="text-xs text-muted-foreground">Not enough sales history yet</span>
+        }
+        const delta = r.thisWeekDemand - r.lastWeekDemand
+        const pct = r.lastWeekDemand > 0 ? Math.round((delta / r.lastWeekDemand) * 100) : null
         return (
-          <Badge tone={MODEL_TONE[result.data.modelUsed]}>
-            {MODEL_LABEL[result.data.modelUsed]}
-            {result.data.degraded ? ' (fallback)' : ''}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <span className="text-foreground">
+              {formatNumber(r.lastWeekDemand)} → {formatNumber(r.thisWeekDemand)}
+            </span>
+            {delta !== 0 && (
+              <span className={cn('flex items-center gap-0.5 text-xs font-medium', delta > 0 ? 'text-success' : 'text-warning')}>
+                {delta > 0 ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
+                {pct !== null ? `${pct > 0 ? '+' : ''}${pct}%` : ''}
+              </span>
+            )}
+          </div>
         )
       },
     },
