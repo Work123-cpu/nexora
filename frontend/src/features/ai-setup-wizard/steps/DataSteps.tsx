@@ -214,7 +214,18 @@ export function InventoryStep() {
   return (
     <WizardStepLayout title="Inventory" description="Current stock levels across all tracked items." onNext={next} onBack={back}>
       {inventoryItems.length === 0 ? (
-        <EmptyState icon={<Warehouse className="size-5" />} title="No inventory yet" description="Inventory tracking starts once your products and raw materials are added." />
+        <EmptyState
+          icon={<Warehouse className="size-5" />}
+          title="No inventory yet"
+          description="Inventory tracking starts once your products and raw materials are added."
+          action={
+            <Link to="/app/inventory/add-stock">
+              <Button type="button" variant="outline" size="sm" leftIcon={<Plus className="size-3.5" />}>
+                Add stock
+              </Button>
+            </Link>
+          }
+        />
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
           <StatCard label="Tracked SKUs" value={formatNumber(inventoryItems.length)} icon={<Warehouse className="size-5" />} tone="primary" />
