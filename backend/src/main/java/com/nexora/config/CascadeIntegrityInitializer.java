@@ -17,10 +17,10 @@ import java.util.Map;
  * Hibernate never generates a real foreign key for it. This adds those foreign keys with
  * ON DELETE CASCADE directly, upgrades the handful of foreign keys Hibernate DOES generate (for
  * @ElementCollection tables like bill line items) from their default NO ACTION to CASCADE too,
- * and adds one trigger so deleting a user cascades *up* to their company — real foreign keys
- * only cascade downward (parent to children) on their own, so a trigger is the only way to make
- * "delete this user" also remove every sibling user and all other company data, which the
- * CASCADE chain below then carries through automatically.
+ * and adds one trigger so deleting a company's *last* user cascades *up* to their now-empty
+ * company — real foreign keys only cascade downward (parent to children) on their own, so a
+ * trigger is the only way to make "that was the last user" also clean up the orphaned company
+ * and all its other data, which the CASCADE chain below then carries through automatically.
  *
  * Idempotent and self-healing, matching how ddl-auto:update already behaves for tables (proven
  * when restarting the backend alone recreated an accidentally-dropped table): safe to run on
@@ -28,10 +28,11 @@ import java.util.Map;
  * constraint) is logged rather than treated as fatal, so a data problem can't stop the app from
  * starting.
  *
- * Practical consequence, stated plainly because it's irreversible: once this runs, deleting any
- * single user — via the app, Workbench, or any other SQL client — permanently deletes that
- * user's entire company: every other user, product, raw material, BOM, bill, vendor, warehouse,
- * purchase order, inventory record, notification, and calendar event tied to it. No undo.
+ * Practical consequence, stated plainly because it's irreversible: deleting a user only wipes
+ * their company if they were the LAST user in it. Removing one of several teammates (e.g. via
+ * Team Members) just removes that one user — everyone else's data stays intact. This guard was
+ * added after the original version cascaded on ANY user delete, which would have wiped a whole
+ * multi-person company's data the first time someone removed a single teammate.
  */
 @Component
 public class CascadeIntegrityInitializer implements ApplicationRunner {
@@ -109,10 +110,11 @@ public class CascadeIntegrityInitializer implements ApplicationRunner {
             jdbc.execute(
                     "CREATE TRIGGER trg_users_cascade_company " +
                     "AFTER DELETE ON users FOR EACH ROW " +
-                    "DELETE FROM companies WHERE id = OLD.company_id");
-            log.info("Ensured trg_users_cascade_company: deleting a user now deletes their whole company.");
+                    "DELETE FROM companies WHERE id = OLD.company_id " +
+                    "AND NOT EXISTS (SELECT 1 FROM users WHERE company_id = OLD.company_id)");
+            log.info("Ensured trg_users_cascade_company: deleting a company's last remaining user now deletes the company too.");
         } catch (Exception e) {
-            log.error("Could not create trg_users_cascade_company trigger — deleting a user will NOT cascade to their company.", e);
+            log.error("Could not create trg_users_cascade_company trigger — deleting a company's last user will NOT cascade to the company.", e);
         }
     }
 }
