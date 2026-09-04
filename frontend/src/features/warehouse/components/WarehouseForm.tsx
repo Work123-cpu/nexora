@@ -19,8 +19,7 @@ const STATUS_OPTIONS = [
   { label: 'At Capacity', value: 'at-capacity' },
 ]
 
-type NumericField = 'capacityUnits' | 'usedUnits'
-type FormState = Omit<WarehouseInput, NumericField> & Record<NumericField, number | ''>
+type FormState = Omit<WarehouseInput, 'capacityUnits'> & { capacityUnits: number | '' }
 
 interface WarehouseFormProps {
   initialValue?: Warehouse
@@ -39,13 +38,11 @@ export function WarehouseForm({ initialValue, onSubmit, isSubmitting, submitLabe
     country: initialValue?.country ?? 'India',
     managerName: initialValue?.managerName ?? '',
     capacityUnits: initialValue?.capacityUnits ?? '',
-    usedUnits: initialValue?.usedUnits ?? '',
     status: initialValue?.status ?? 'operational',
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   const capacityUnits = form.capacityUnits === '' ? 0 : form.capacityUnits
-  const usedUnits = form.usedUnits === '' ? 0 : form.usedUnits
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -53,11 +50,10 @@ export function WarehouseForm({ initialValue, onSubmit, isSubmitting, submitLabe
     if (!form.name.trim()) nextErrors.name = 'Warehouse name is required.'
     if (!form.code.trim()) nextErrors.code = 'Warehouse code is required.'
     if (capacityUnits <= 0) nextErrors.capacityUnits = 'Capacity must be greater than zero.'
-    if (usedUnits > capacityUnits) nextErrors.usedUnits = 'Used units cannot exceed capacity.'
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
 
-    await onSubmit({ ...form, capacityUnits, usedUnits })
+    await onSubmit({ ...form, capacityUnits })
   }
 
   return (
@@ -87,22 +83,15 @@ export function WarehouseForm({ initialValue, onSubmit, isSubmitting, submitLabe
 
       <Card>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2">
             <Input
               label="Capacity (units)"
               type="number"
               placeholder="e.g. 10000"
+              hint="How much this warehouse can hold in total — used capacity is tracked automatically from real stock."
               value={form.capacityUnits}
               onChange={(e) => setForm({ ...form, capacityUnits: e.target.value === '' ? '' : Number(e.target.value) })}
               error={errors.capacityUnits}
-            />
-            <Input
-              label="Used (units)"
-              type="number"
-              placeholder="e.g. 0"
-              value={form.usedUnits}
-              onChange={(e) => setForm({ ...form, usedUnits: e.target.value === '' ? '' : Number(e.target.value) })}
-              error={errors.usedUnits}
             />
             <Select
               label="Status"

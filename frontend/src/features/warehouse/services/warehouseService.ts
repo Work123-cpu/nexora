@@ -4,6 +4,8 @@ import { paginateFilterSort } from '@/services/base/paginate'
 import { apiClient } from '@/shared/lib/apiClient'
 import { fromBackendInventoryItem, type BackendInventoryItem } from '@/features/inventory/services/inventoryService'
 
+// No usedUnits -- the backend computes it from real inventory on every read, it's never
+// something a create/update request can set (see WarehouseService.withComputedUsedUnits).
 export interface WarehouseInput {
   name: string
   code: string
@@ -13,7 +15,6 @@ export interface WarehouseInput {
   country: string
   managerName: string
   capacityUnits: number
-  usedUnits: number
   status: Warehouse['status']
 }
 

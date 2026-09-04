@@ -32,7 +32,9 @@ public class Warehouse {
     @Column(name = "capacity_units")
     private double capacityUnits;
 
-    @Column(name = "used_units")
+    // Not persisted -- computed by WarehouseService from real InventoryItem quantities every time
+    // a warehouse is read, so it can never go stale the way a manually-typed number would.
+    @Transient
     private double usedUnits;
 
     @Column(nullable = false)
