@@ -43,7 +43,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const toast = useCallback(
     (input: Omit<ToastItem, 'id'>) => {
       const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-      setToasts((prev) => [...prev, { ...input, id }])
+      // Same title already showing -- replace it instead of stacking a duplicate. Mainly matters
+      // for a bulk-import loop where several rows can fail with the identical error toast in
+      // quick succession; without this it'd pile up one per row instead of just staying current.
+      setToasts((prev) => [...prev.filter((t) => t.title !== input.title), { ...input, id }])
       setTimeout(() => dismiss(id), 4500)
     },
     [dismiss],

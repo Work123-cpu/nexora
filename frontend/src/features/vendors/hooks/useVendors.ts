@@ -1,4 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useToast } from '@/shared/ui/Toast'
 import { vendorService, type GetVendorsParams, type VendorInput } from '../services/vendorService'
 
 export const vendorKeys = {
@@ -28,26 +29,35 @@ export function useVendorPurchaseOrders(id: string | undefined) {
   })
 }
 
+// None of the three had error handling before -- a failed request just stopped the button
+// spinner with zero feedback, indistinguishable from the button being broken (same gap found and
+// fixed in useNotifications.ts). A toast at least makes a real failure visible.
 export function useCreateVendor() {
   const queryClient = useQueryClient()
+  const { toast } = useToast()
   return useMutation({
     mutationFn: (input: VendorInput) => vendorService.createVendor(input),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: vendorKeys.all }),
+    onError: () => toast({ title: 'Could not create vendor', description: 'Please try again in a moment.', tone: 'error' }),
   })
 }
 
 export function useUpdateVendor() {
   const queryClient = useQueryClient()
+  const { toast } = useToast()
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: Partial<VendorInput> }) => vendorService.updateVendor(id, input),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: vendorKeys.all }),
+    onError: () => toast({ title: 'Could not save vendor', description: 'Please try again in a moment.', tone: 'error' }),
   })
 }
 
 export function useDeleteVendor() {
   const queryClient = useQueryClient()
+  const { toast } = useToast()
   return useMutation({
     mutationFn: (id: string) => vendorService.deleteVendor(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: vendorKeys.all }),
+    onError: () => toast({ title: 'Could not delete vendor', description: 'Please try again in a moment.', tone: 'error' }),
   })
 }

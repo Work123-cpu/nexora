@@ -1,4 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useToast } from '@/shared/ui/Toast'
 import { inventoryService, type GetInventoryParams, type InventoryItemInput, type InventoryAdjustInput } from '../services/inventoryService'
 
 export const inventoryKeys = {
@@ -54,22 +55,29 @@ export function useInventoryTrend(id: string | undefined) {
   })
 }
 
+// Neither had error handling before -- callers that try/catch mutateAsync themselves (Add Stock,
+// Edit Stock) already surfaced an inline error, but anything calling these without a try/catch
+// (e.g. a future bulk flow) got zero feedback on failure. A toast covers that gap too.
 export function useCreateInventoryItem() {
   const queryClient = useQueryClient()
+  const { toast } = useToast()
   return useMutation({
     mutationFn: (input: InventoryItemInput) => inventoryService.createInventoryItem(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: inventoryKeys.all })
     },
+    onError: () => toast({ title: 'Could not save this stock entry', description: 'Please try again in a moment.', tone: 'error' }),
   })
 }
 
 export function useAdjustInventoryItem() {
   const queryClient = useQueryClient()
+  const { toast } = useToast()
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: InventoryAdjustInput }) => inventoryService.adjustInventoryItem(id, input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: inventoryKeys.all })
     },
+    onError: () => toast({ title: 'Could not update stock levels', description: 'Please try again in a moment.', tone: 'error' }),
   })
 }
